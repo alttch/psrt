@@ -106,4 +106,4 @@ If the anonymous user has no admin rights, URI requires login and password
 Download packages from <https://get.eva-ics.com/psrt-enterprise/>
 
 [Cluster setup
-instructions](https://github.com/alttch/psrt/blob/main/cluster.md).
+instructions](https://github.com/alttch/psrt/blob/main/cluster.md)
