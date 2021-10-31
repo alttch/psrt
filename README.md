@@ -80,7 +80,8 @@ PubSubRT uses the standard *htpasswd* format, use any htpasswd-compatible tool
 Users with admin rights can obtain statistical data using a web browser (by
 default, at http://localhost:2884).
 
-<img src="https://raw.githubusercontent.com/alttch/psrt/main/status.png"
+<img
+src="https://raw.githubusercontent.com/alttch/psrt/main/status-preview.png"
 width="300" />
 
 The data can also be obtained in JSON for 3rd-party apps at:
