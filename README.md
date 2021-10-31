@@ -45,7 +45,8 @@ library.
 Other repositories:
 
 * [psrt-py](https://github.com/alttch/psrt-py) - Python client library (sync),
-  semi-compatible with [paho-mqtt](https://github.com/eclipse/paho.mqtt.python)
+  SDK is semi-compatible with
+  [paho-mqtt](https://github.com/eclipse/paho.mqtt.python)
 
 ## Installation
 
