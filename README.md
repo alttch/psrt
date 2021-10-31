@@ -42,7 +42,8 @@ enterprise setups.
 
 This repository contains PubSubRT server, implementing PSRT (open-source
 version without the cluster module), command-line client and Rust client
-library. The cluster code is not open-source.
+library. The cluster code is not open-source, but may be opened in the future
+as well.
 
 Other repositories:
 
