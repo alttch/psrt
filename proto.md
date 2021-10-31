@@ -10,7 +10,7 @@ PROTOCOL VERSION: 1
 
 LEN = packet length (4 bytes = u32)
 
-Response frames:
+Response codes:
 
 * 0x00 - NOP (pings, should be sent every N < timeout seconds to make sure the
   socket is alive)
