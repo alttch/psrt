@@ -2,8 +2,6 @@
 //!
 //! <https://github.com/alttch/psrt>
 // TODO stats design (outsourced)
-// TODO docs
-// TODO python client docs
 //
 // TODO priorities
 // TODO web sockets
