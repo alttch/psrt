@@ -5,6 +5,8 @@
 PSRT is pub-sub protocol, optimized for industrial needs: low latency, slow
 channels and large payloads.
 
+PSRT can process 100K+ messages on a single node with very low latencies (<1ms).
+
 ## Why not MQTT?
 
 We love MQTT. And we use MQTT a lot. There are cases where MQTT ideally fits
