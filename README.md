@@ -42,4 +42,4 @@ Other repositories:
 
 ## Protocol specifications
 
-https://github.com/alttch/psrt/proto.md
+<https://github.com/alttch/psrt/blob/main/proto.md>
