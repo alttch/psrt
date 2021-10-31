@@ -68,6 +68,20 @@ If installed manually, get configuration files from
 PubSubRT uses the standard *htpasswd* format, use any htpasswd-compatible tool
 (with -B flag for bcrypt).
 
+## Statistical data
+
+Users with admin rights can obtain statistical data using a web browser (by
+default, at http://localhost:2884).
+
+The data can also be obtained for 3rd-party apps at *http://host:port/status*:
+
+```shell
+curl http://localhost:2884/status
+```
+
+If the anonymous user has no admin rights, URI requires login and password
+(HTTP basic auth).
+
 ## Cargo crate
 
 <https://crates.io/crates/psrt>
