@@ -16,7 +16,7 @@ PSRT can process 100K+ messages on a single node with very low latencies
 We love MQTT. And we use MQTT a lot. There are cases where MQTT ideally fits
 requirements. However, for some it does not satisfy our speed and reliability
 needs and produces additional overhead. That is why we invented PSRT and use it
-as the primary protocol for [EVA ICS](https://www.eva-ics.com) on large
+as the primary protocol for [EVA ICS](https://www.eva-ics.com) in large
 enterprise setups.
 
 ## What is the difference?
