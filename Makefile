@@ -43,5 +43,5 @@ pub-pkg:
 			psrt-${VERSION}-arm-musleabihf.tar.gz \
 			psrt-${VERSION}-i686-musl.tar.gz \
 			psrt-${VERSION}-x86_64-musl.tar.gz \
-			psrt-${VERSION}-aarch64-musl.tar.gz
+			psrt-${VERSION}-aarch64-musl.tar.gz \
 			psrt-${VERSION}-amd64.deb
