@@ -43,6 +43,21 @@ Other repositories:
 
 * [psrt-py](https://github.com/alttch/psrt-py) - Python client library (sync)
 
+## Installation
+
+Use binaries from <https://github.com/alttch/psrt/releases>. For Debian/Ubuntu
+and other deb-based distros, *.deb packages can be used.
+
+## Build from source
+
+Install [Rust](https://www.rust-lang.org/tools/install)
+
+Build:
+
+```shell
+cargo build  --features server,cli --release
+```
+
 ## Example configuration files
 
 If installed manually, get configuration files from
