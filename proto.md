@@ -85,7 +85,7 @@ OK\_WAIT/ERROR/NOT\_REQIRED
 
 Client (if required)
 
-PRI(u8=7F) TIMESTAMP(u64, nanoseconds) LEN MESSAGE
+PRIO(u8=7F) TIMESTAMP(u64, nanoseconds) LEN MESSAGE
 
 ### Bye
 
@@ -121,7 +121,7 @@ disconnected from the control socket.
 
 Client:
 
-EE AA 01 00 LOGIN 00 PASSWORD 00 OP PRIO TOPIC 00 DATA
+EE AA 01 00 LOGIN 00 PASSWORD 00 OP PRIO(u8=7F) TOPIC 00 DATA
 
 Server (if ack required):
 
