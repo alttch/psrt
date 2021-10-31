@@ -139,7 +139,7 @@ Server:
 
 x01 PRI(u8=7F) LEN TOPIC 00 MESSAGE
 
-Server will also send beacon messages with TIMEOUT/2 interval
+Server also sends beacon OP\_NOP messages with TIMEOUT/2 interval
 
 ### Bye
 
