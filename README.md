@@ -34,7 +34,7 @@ needs and produces additional overhead. That is why we invented PSRT.
   TCP control socket or work without any connection established, using UDP
   datagrams with or without acknowledge from the server
 * PSRT is almost 100% logically compatible with MQTT, so software can be
-  switched to it and vice-versa with only a couple of lines of code
+  switched to it and vice versa with only a couple of lines of code
 
 ## About the repository
 
