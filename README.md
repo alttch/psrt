@@ -40,6 +40,17 @@ Other repositories:
 
 * [psrt-py](https://github.com/alttch/psrt-py) - Python client library (sync)
 
+## Example configuration files
+
+If installed manually, get configuration files from
+<https://github.com/alttch/psrt/tree/main/make-deb/etc/psrtd> or use files from
+*example-configs* directory (need to be edited before use).
+
+## Authentication
+
+PubSubRT uses the standard *htpasswd* format, use any htpasswd-compatible tool
+(with -B flag for bcrypt).
+
 ## Cargo crate
 
 <https://crates.io/crates/psrt>
