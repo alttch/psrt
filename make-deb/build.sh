@@ -6,7 +6,7 @@ VERSION=$(grep ^version ${PSRT}/Cargo.toml|awk '{ print $3 }'|tr -d '"')
 
 [ -z "$VERSION" ] && exit 1
 
-TARGET="psrt-${VERSION}"
+TARGET="psrt-${VERSION}-amd64"
 
 rm -rf "./${TARGET}"
 mkdir -p ./${TARGET}/usr/bin
