@@ -5,8 +5,8 @@ width="100" />
 
 ## What is PSRT
 
-PSRT is pub-sub protocol, optimized for industrial needs: low latency, slow
-channels and large payloads.
+PSRT is a real-time pub-sub protocol, optimized for industrial needs: low
+latency, slow channels and large payloads.
 
 PSRT can process 100K+ messages on a single node with very low latencies
 (<1ms). Speeds are reasonable even with large (1M+ payloads).
