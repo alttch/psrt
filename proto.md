@@ -121,9 +121,12 @@ Server: sets mode or disconnects
 
 Server (4 byte): EE AB 01 00 (01 00 - protocol version)
 
-Client: 32 bytes (hash) TIMEOUT\_SEC (u8)
+Client: 32 bytes (client token) TIMEOUT\_SEC (u8)
 
 Server: OK or closes the socket
+
+The client can have only one data socket with the same token. The client may
+close the data socket and the reuse the token to open a new one.
 
 ### Keep-alive pings
 
@@ -137,6 +140,10 @@ Server:
 x01 PRI(u8=7F) LEN TOPIC 00 MESSAGE
 
 Server will also send beacon messages with TIMEOUT/2 interval
+
+### Bye
+
+Not required. The client can close the data socket at any time.
 
 ## UDP
 
