@@ -1,6 +1,6 @@
 # PubSubRT clusters
 
-* Clusters are supported by PSRT enterprise version only.
+* Clusters are supported with PSRT enterprise version only.
 
 * If you do not have valid PSRT enterprise license, please contact
   [Altertech](https://www.altertech.com/order/) for quotes and contract
