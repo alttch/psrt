@@ -82,7 +82,7 @@ default, at http://localhost:2884).
 
 <img
 src="https://raw.githubusercontent.com/alttch/psrt/main/status-preview.png"
-width="800" />
+width="750" />
 
 The data can also be obtained in JSON for 3rd-party apps at:
 
