@@ -45,7 +45,7 @@ having list of neighbors configured in the cluster configuration YAML file.
 * Paths to license key files must be set in "server/license" field of the main
   configuration file.
 
-### Usage
+## Usage
 
 * After booting, all cluster nodes enter into "waiting" state. As soon as a node
 receives first message, it tries to connect all cluster neighbors and submit it
