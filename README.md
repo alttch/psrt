@@ -2,6 +2,9 @@
 
 ## What is PSRT
 
+<img src="https://raw.githubusercontent.com/alttch/psrt/main/psrt-logo.png"
+width="100" />
+
 PSRT is pub-sub protocol, optimized for industrial needs: low latency, slow
 channels and large payloads.
 
