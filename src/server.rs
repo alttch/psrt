@@ -697,7 +697,7 @@ async fn launch_data_stream(
                                         latency_mks,
                                         // will not panic as the topic is already verified
                                         std::str::from_utf8(
-                                            message.frame[5..]
+                                            message.frame[6..]
                                                 .splitn(2, |n| *n == 0)
                                                 .next()
                                                 .unwrap()
