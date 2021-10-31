@@ -39,6 +39,11 @@ Client: LEN LOGIN 00 PASSWORD (for anonymous login send = 01 00 00 00 00)
 
 Server: 32 bytes (*client token) or closes the socket
 
+### Pings
+
+The client MUST ping the server using OP\_NOP with frequency higher than the
+server timeout, otherwise the socket is automatically closed by the server.
+
 ### Subscribe
 
 OP\_SUBCRIBE = 0x02
@@ -114,6 +119,11 @@ Server (4 byte): EE AB 01 00 (01 00 - protocol version)
 Client: 32 bytes (hash) TIMEOUT\_SEC (u8)
 
 Server: OK or closes the socket
+
+### Pings
+
+The server pings the client with frequency TIMEOUT\_SEC / 2, where TIMEOUT\_SEC
+is the value reported by the client during greetings.
 
 ### Message push
 
