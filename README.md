@@ -40,6 +40,10 @@ Other repositories:
 
 * [psrt-py](https://github.com/alttch/psrt-py) - Python client library (sync)
 
+## Cargo crate
+
+<https://crates.io/crates/psrt>
+
 ## Protocol specifications
 
 <https://github.com/alttch/psrt/blob/main/proto.md>
