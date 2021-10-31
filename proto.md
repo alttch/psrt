@@ -104,7 +104,9 @@ Client:
 
 0xFF
 
-Server: closes socket
+Server: closes the socket
+
+The client may keep or close a data socket if opened.
 
 ## Data socket
 
