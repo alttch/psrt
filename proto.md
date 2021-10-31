@@ -39,7 +39,7 @@ Client: LEN LOGIN 00 PASSWORD (for anonymous login send = 01 00 00 00 00)
 
 Server: 32 bytes (*client token) or closes the socket
 
-### Pings
+### Keep-alive pings
 
 The client MUST ping the server by sending OP\_NOP with frequency higher than
 the server timeout, otherwise the socket is automatically closed by the server.
@@ -108,6 +108,9 @@ Server: closes socket
 
 ## Data socket
 
+Note: Data socket is forcibly disconnected by the server when the client is
+disconnected from the control socket.
+
 ### Greetings
 
 Client: 0xEE 0xAB <0x00 / 0x01 for STARTTLS>
@@ -120,7 +123,7 @@ Client: 32 bytes (hash) TIMEOUT\_SEC (u8)
 
 Server: OK or closes the socket
 
-### Pings
+### Keep-alive pings
 
 The server pings the client by sending OP\_NOP with frequency TIMEOUT\_SEC / 2,
 where TIMEOUT\_SEC is the value reported by the client during greetings.
@@ -132,9 +135,6 @@ Server:
 x01 PRI(u8=7F) LEN TOPIC 00 MESSAGE
 
 Server will also send beacon messages with TIMEOUT/2 interval
-
-Data socket MUST be forcibly disconnected by the server when the client is
-disconnected from the control socket.
 
 ## UDP
 
