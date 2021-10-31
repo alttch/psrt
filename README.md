@@ -50,9 +50,8 @@ and other deb-based distros, *.deb packages can be used.
 
 ## Build from source
 
-Install [Rust](https://www.rust-lang.org/tools/install)
-
-Build:
+* Install [Rust](https://www.rust-lang.org/tools/install)
+* Build the server and cli:
 
 ```shell
 cargo build  --features server,cli --release
