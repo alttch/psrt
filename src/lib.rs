@@ -3,7 +3,6 @@
 //! <https://github.com/alttch/psrt>
 // TODO stats design (outsourced)
 // TODO docs
-// TODO publish on github
 // TODO release binaries and deb (jks)
 // TODO python client docs
 //
