@@ -126,7 +126,7 @@ Client: 32 bytes (client token) TIMEOUT\_SEC (u8)
 Server: OK or closes the socket
 
 The client can have only one data socket with the same token. The client may
-close the data socket and the reuse the token to open a new one.
+close the data socket and then reuse the token to open a new one.
 
 ### Keep-alive pings
 
