@@ -116,8 +116,8 @@ disconnected from the control socket.
 
 ### UDP
 
-0x01 - OP\_PUBLISH
-0x21 - OP\_PUBLISH\_NO\_ACK
+* 0x01 - OP\_PUBLISH
+* 0x21 - OP\_PUBLISH\_NO\_ACK
 
 Client:
 
