@@ -93,3 +93,7 @@ If the anonymous user has no admin rights, URI requires login and password
 ## Protocol specifications
 
 <https://github.com/alttch/psrt/blob/main/proto.md>
+
+## Enterprise version
+
+Download packages from <https://get.eva-ics.com/psrt-enterprise/>
