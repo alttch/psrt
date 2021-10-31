@@ -73,7 +73,7 @@ PubSubRT uses the standard *htpasswd* format, use any htpasswd-compatible tool
 Users with admin rights can obtain statistical data using a web browser (by
 default, at http://localhost:2884).
 
-The data can also be obtained for 3rd-party apps at *\http://host:port/status*:
+The data can also be obtained for 3rd-party apps at:
 
 ```shell
 curl http://localhost:2884/status
