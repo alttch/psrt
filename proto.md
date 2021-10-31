@@ -29,10 +29,14 @@ always 0x7F.
 
 ### Greetings
 
-Client: 0xEE 0xAA <0x00 / 0x01 for STARTTLS>
+Client: EE AA <00 / 01 for STARTTLS>
+
 Server: sets mode or disconnects
+
 Server (4 byte): EE AA 01 00 (01 00 - protocol version)
+
 Client: LEN LOGIN 00 PASSWORD (for anonymous login send = 01 00 00 00 00)
+
 Server: 32 bytes (*client token) or closes the socket
 
 ### Subscribe
@@ -99,11 +103,19 @@ Server: closes socket
 
 ## Data socket
 
+### Greetings
+
 Client: 0xEE 0xAB <0x00 / 0x01 for STARTTLS>
+
 Server: sets mode or disconnects
+
 Server (4 byte): EE AB 01 00 (01 00 - protocol version)
+
 Client: 32 bytes (hash) TIMEOUT\_SEC (u8)
+
 Server: OK or closes the socket
+
+### Message push
 
 Server:
 
@@ -114,7 +126,7 @@ Server will also send beacon messages with TIMEOUT/2 interval
 Data socket MUST be forcibly disconnected by the server when the client is
 disconnected from the control socket.
 
-### UDP
+## UDP
 
 * 0x01 - OP\_PUBLISH
 * 0x21 - OP\_PUBLISH\_NO\_ACK
