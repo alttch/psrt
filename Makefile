@@ -36,7 +36,7 @@ pkg:
 			tar czvf ../../../_build/psrt-${VERSION}-aarch64-musl.tar.gz psrtd psrt-cli
 
 debian-pkg:
-	cd make-deb && ./build.sh && mv psrt-${VERSION}-amd64.deb ..
+	cd make-deb && ./build.sh && mv psrt-${VERSION}-amd64.deb ../_build/
 
 pub-pkg:
 	cd _build && echo "" | gh release create v$(VERSION) -t "v$(VERSION)" \
