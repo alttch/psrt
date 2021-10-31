@@ -2,6 +2,8 @@
 
 ## Common
 
+Default port: 2883
+
 All numbers are processed as little-endian.
 
 PROTOCOL VERSION: 1
