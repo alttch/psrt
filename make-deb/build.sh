@@ -6,7 +6,13 @@ VERSION=$(grep ^version ${PSRT}/Cargo.toml|awk '{ print $3 }'|tr -d '"')
 
 [ -z "$VERSION" ] && exit 1
 
-TARGET="psrt-${VERSION}-amd64"
+if [ "$1" = "enterprise" ]; then
+  TARGET="psrt-enterprise-${VERSION}-amd64"
+  PACKAGE="psrt-enterprise"
+else
+  TARGET="psrt-${VERSION}-amd64"
+  PACKAGE="psrt"
+fi
 
 rm -rf "./${TARGET}"
 mkdir -p ./${TARGET}/usr/bin
@@ -23,7 +29,7 @@ strip ./${TARGET}/usr/sbin/psrtd
 # TODO systemd service
 (
 cat << EOF
-Package: psrt
+Package: ${PACKAGE}
 Version: ${VERSION}
 Section: base
 Priority: optional

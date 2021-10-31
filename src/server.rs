@@ -67,6 +67,11 @@ static MAX_TOPIC_LENGTH: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 const CONFIG_FILES: &[&str] = &["/etc/psrtd/config.yml", "/usr/local/etc/psrtd/config.yml"];
 
+#[cfg(feature = "cluster")]
+const APP_NAME: &str = "PSRT Enterprise";
+#[cfg(not(feature = "cluster"))]
+const APP_NAME: &str = "PSRT";
+
 use stats::Counters;
 
 macro_rules! acl_dbm {
@@ -767,7 +772,7 @@ struct Config {
 }
 
 #[derive(Clap)]
-#[clap(version = psrt::VERSION, author = psrt::AUTHOR)]
+#[clap(version = psrt::VERSION, author = psrt::AUTHOR, name = APP_NAME)]
 struct Opts {
     #[clap(short = 'C', long = "config")]
     config_file: Option<String>,

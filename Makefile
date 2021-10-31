@@ -45,3 +45,4 @@ pub-pkg:
 			psrt-${VERSION}-x86_64-musl.tar.gz \
 			psrt-${VERSION}-aarch64-musl.tar.gz \
 			psrt-${VERSION}-amd64.deb
+
