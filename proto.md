@@ -41,8 +41,8 @@ Server: 32 bytes (*client token) or closes the socket
 
 ### Pings
 
-The client MUST ping the server using OP\_NOP with frequency higher than the
-server timeout, otherwise the socket is automatically closed by the server.
+The client MUST ping the server by sending OP\_NOP with frequency higher than
+the server timeout, otherwise the socket is automatically closed by the server.
 
 ### Subscribe
 
@@ -122,8 +122,8 @@ Server: OK or closes the socket
 
 ### Pings
 
-The server pings the client with frequency TIMEOUT\_SEC / 2, where TIMEOUT\_SEC
-is the value reported by the client during greetings.
+The server pings the client by sending OP\_NOP with frequency TIMEOUT\_SEC / 2,
+where TIMEOUT\_SEC is the value reported by the client during greetings.
 
 ### Message push
 
