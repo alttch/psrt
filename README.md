@@ -28,7 +28,7 @@ needs and produces additional overhead. That is why we invented PSRT.
   control op acknowledgements and incoming message data can be mixed, which is
   important when large messages are processed on slow channels
 * Devices and nodes, which do not need subscriptions, can use either a single
-  TCP control socket or work without connection established, using UDP
+  TCP control socket or work without any connection established, using UDP
   datagrams with or without acknowledge from the server
 * PSRT is almost 100% logically compatible with MQTT, so software can be
   switched to it and vice-versa with only a couple of lines of code
