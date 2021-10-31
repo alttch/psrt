@@ -54,7 +54,7 @@ and other deb-based distros, *.deb packages can be used.
 * Build the server and cli:
 
 ```shell
-cargo build  --features server,cli --release
+cargo build --features server,cli --release
 ```
 
 ## Example configuration files
