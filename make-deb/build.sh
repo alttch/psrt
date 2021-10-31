@@ -7,12 +7,12 @@ VERSION=$(grep ^version ${PSRT}/Cargo.toml|awk '{ print $3 }'|tr -d '"')
 [ -z "$VERSION" ] && exit 1
 
 if [ "$1" = "enterprise" ]; then
-  TARGET="psrt-enterprise-${VERSION}-amd64"
   PACKAGE="psrt-enterprise"
 else
-  TARGET="psrt-${VERSION}-amd64"
   PACKAGE="psrt"
 fi
+
+TARGET="${PACKAGE}-${VERSION}-amd64"
 
 rm -rf "./${TARGET}"
 mkdir -p ./${TARGET}/usr/bin

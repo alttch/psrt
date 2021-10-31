@@ -46,3 +46,7 @@ pub-pkg:
 			psrt-${VERSION}-aarch64-musl.tar.gz \
 			psrt-${VERSION}-amd64.deb
 
+enterprise:
+	cargo build --target x86_64-unknown-linux-musl --release --features server,cli,cluster
+	cd make-deb && ./build.sh enterprise && gsutil cp psrt-enterprise-${VERSION}-amd64.deb gs://get.eva-ics.com/psrt-enterprise/
+	jks build get.eva-ics.com
