@@ -110,7 +110,7 @@ The client may keep or close a data socket if opened.
 
 ## Data socket
 
-Note: Data socket is forcibly disconnected by the server when the client is
+Note: A data socket is forcibly disconnected by the server when the client is
 disconnected from the control socket.
 
 ### Greetings
