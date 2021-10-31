@@ -3,7 +3,7 @@
 * Clusters are supported with PSRT enterprise version only.
 
 * If you do not have valid PSRT enterprise license, please contact
-  [Altertech](https://www.altertech.com/order/) for quotes and contract
+  [Altertech](https://www.altertech.com/order/?id=psrt) for quotes and contract
   details.
 
 ## Cluster nodes
