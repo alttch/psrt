@@ -1,4 +1,4 @@
-# PubSubRT - an industrial pub/sub server
+# PubSubRT - an industrial real-time pub/sub server
 
 ## What is PSRT
 
