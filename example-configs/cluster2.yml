@@ -1,0 +1,9 @@
+- path: 127.0.0.1:2883
+  user: replicator
+  password: xxx
+  timeout: 5
+#- path: 127.0.0.1:4883
+  #user: replicator
+  #password: xxx
+  #tls: true
+  #tls_ca: ./certs/ca.crt

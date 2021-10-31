@@ -1,0 +1,18 @@
+[Unit]
+Description=PubSubRT
+After=network.target
+
+[Service]
+PermissionsStartOnly=True
+Type=simple
+User=psrt
+RuntimeDirectory=psrtd
+RuntimeDirectoryMode=0775
+WorkingDirectory=/
+ExecStart=/usr/sbin/psrtd --log-syslog
+ExecReload=kill -HUP $MAINPID
+Restart=always
+TimeoutStartSec=5
+
+[Install]
+WantedBy=multi-user.target

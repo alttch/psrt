@@ -1,0 +1,251 @@
+<html>
+  <head>
+    <title>PubSubRT stats</title>
+    <script src="chart.min.js"></script>
+  <style type="text/css">
+  body { font-size: 14px; font-family: Verdana, Arial, Helvetica, sans-serif; background-color: #111111;
+    color: #dedede; }
+  .copyright {
+    margin-top: 20px; font-size: 12px;
+  }
+  .online {
+    color: green;
+  }
+  .offline {
+    color: red;
+  }
+  .unavailable {
+    color: red;
+  }
+  .waiting {
+    color: grey;
+  }
+  .connecting {
+    color: orange;
+  }
+  .chart { width: 400px; margin-top: 20px; }
+  td { white-space: nowrap; }
+  </style>
+  </head>
+  <script type="text/javascript">
+    var chart_sub_ops;
+    var chart_sent_latency;
+    var chart_pub_messages;
+    var chart_pub_bytes;
+    var chart_sent_messages;
+    var chart_sent_bytes;
+    function format_bytes(bytes) {
+          if (bytes === 0) return "0 B";
+          if (bytes < 1) return "";
+          const k = 1024;
+          const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    }
+    function create_chart(counter, units, color) {
+      let cnt = document.getElementById("ch_" + counter);
+      let ctx = document.createElement('canvas');
+      cnt.append(ctx);
+      let labels = [];
+      let data = [];
+      for (let i=0; i<60; i++) {
+        labels.push(i);
+        data.push(0);
+      }
+      let ytickcfg = {};
+      if (units == 'bytes/sec') {
+        ytickcfg.callback = function(value, index, values) { return format_bytes(value); }
+      }
+      return new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{ label: `c_${counter}, ${units}`,
+                        data: data, backgroundColor: [ `rgba(${color},0.5)`,
+                  ], borderColor: [ `rgba(${color}, 0.8)`, ], borderWidth: 1 }]
+          },
+          options: { animation: false,
+            scales: {
+              y: { grid: { color: "#333333" }, beginAtZero: true, ticks: ytickcfg },
+              x: { grid: { color: "#333333" }, ticks: { display: false } }
+            }
+          }
+      });
+    }
+    function update_chart(chart, value) {
+      let cdata = chart.data.datasets[0].data;
+      cdata.shift();
+      cdata.push(value);
+      chart.update();
+    }
+    function start() {
+      chart_sub_ops = create_chart("sub_ops", "ops/sec", "155,52,235");
+      chart_sent_latency = create_chart("sent_latency", "µs avg", "138,50,86");
+      chart_pub_messages = create_chart("pub_messages", "ops/sec", "60,133,91");
+      chart_pub_bytes = create_chart("pub_bytes", "bytes/sec", "29,153,219");
+      chart_sent_messages = create_chart("sent_messages", "ops/sec", "201,195,16");
+      chart_sent_bytes = create_chart("sent_bytes", "bytes/sec", "245,149,66");
+      update_status();
+    }
+
+    var data_prev;
+    var u64_max = 0xffff_ffff_ffff_ffff;
+    function fnum(x) {
+        return x.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, "_");
+    }
+    function set_el(el_id, value, format_number) {
+      let el = document.getElementById(el_id);
+      if (format_number) {
+        el.innerHTML = fnum(value);
+      } else {
+        el.innerHTML = value;
+      }
+    }
+    function cnt_delta(val, prev_val) {
+      if (val >= prev_val) {
+        return val - prev_val
+      } else {
+        return val + (u64_max - prev_val);
+      }
+    }
+    function cnt_speed(val, prev_val, time) {
+      if (!time) {
+        return 0;
+      }
+      let speed = cnt_delta(val, prev_val) / time;
+      return Math.round(speed);
+    }
+    function update_status() {
+      fetch('status', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (!data_prev || data.time > data_prev.time) {
+            set_el("status", "<span class='online'>online</span>");
+            set_el("host", data.host);
+            let time = String(new Date(data.time / 1_000));
+            let ti = time.indexOf('(');
+            if (ti) {
+              time = time.substring(0, ti);
+            }
+            set_el("time", time);
+            set_el("uptime", data.uptime, true);
+            set_el("data_queue_size", data.data_queue_size, true);
+            set_el("version", data.version);
+            set_el("c_sub_ops", data.counters.c_sub_ops, true);
+            set_el("c_pub_messages", data.counters.c_pub_messages, true);
+            set_el("c_pub_bytes", data.counters.c_pub_bytes, true);
+            set_el("c_sent_messages", data.counters.c_sent_messages, true);
+            set_el("c_sent_bytes", data.counters.c_sent_bytes, true);
+            set_el("c_sent_latency", data.counters.c_sent_latency, true);
+            set_el("client_count", data.clients.client_count, true);
+            set_el("subscription_count", data.clients.subscription_count, true);
+            if (data_prev) {
+              let time_delta = (data.time - data_prev.time) / 1_000_000;
+              let sub_ops_speed = cnt_speed(data.counters.c_sub_ops, data_prev.counters.c_sub_ops, time_delta);
+              set_el("sub_ops_speed", sub_ops_speed, true);
+              update_chart(chart_sub_ops, sub_ops_speed);
+              let pub_speed = cnt_speed(data.counters.c_pub_messages, data_prev.counters.c_pub_messages, time_delta);
+              set_el("pub_speed", pub_speed, true);
+              update_chart(chart_pub_messages, pub_speed);
+              let pub_bytes_speed = cnt_speed(data.counters.c_pub_bytes, data_prev.counters.c_pub_bytes, time_delta);
+              set_el("pub_bytes_speed", format_bytes(pub_bytes_speed), false);
+              update_chart(chart_pub_bytes, pub_bytes_speed);
+              let sent_speed = cnt_speed(data.counters.c_sent_messages, data_prev.counters.c_sent_messages, time_delta);
+              set_el("sent_speed", sent_speed, true);
+              update_chart(chart_sent_messages, sent_speed);
+              let sent_bytes_speed = cnt_speed(data.counters.c_sent_bytes, data_prev.counters.c_sent_bytes, time_delta);
+              set_el("sent_bytes_speed", format_bytes(sent_bytes_speed), false);
+              update_chart(chart_sent_bytes, sent_bytes_speed);
+              let msg_cnt = cnt_delta(data.counters.c_sent_messages, data_prev.counters.c_sent_messages);
+              let latency_avg = 0;
+              if (msg_cnt) {
+                latency_avg = Math.round(cnt_delta(data.counters.c_sent_latency,
+                    data_prev.counters.c_sent_latency) / msg_cnt);
+              }
+              set_el("latency_avg", latency_avg, true);
+              update_chart(chart_sent_latency, latency_avg);
+            }
+            data_prev = data;
+            if (data.cluster == null) {
+              set_el("cluster", "not configured");
+            } else {
+              let cluster_table = "<table border='1'><tr><td>node</td><td>status</td></tr>";
+              for (let [key, val] of Object.entries(data.cluster)) {
+                cluster_table += `<tr><td>${key}</td><td><span class="${val}">${val}</span></td></tr>`;
+              }
+              cluster_table += "</table>";
+              set_el("cluster", cluster_table);
+            }
+          }
+          setTimeout(update_status, 1000);
+        })
+        .catch((error) => {
+          set_el("status", "<span class='offline'>offline</span>");
+          data_prev = null;
+          console.error('Error:', error);
+          setTimeout(update_status, 1000);
+        });
+    }
+  </script>
+  <body onload="start()">
+    <h1>PubSubRT</h1>
+    <table width="100%">
+      <tr><td width="70%" valign="top">
+        <h2>Server info</h2>
+        <div>host: <span id="host" style="font-weight: bold"></span></div>
+        <div>status: <span id="status" style="font-weight: bold"><span class="connecting">connecting...</span></span></div>
+        <div>uptime: <span id="uptime"></span> sec</div>
+        <div>data queue size: <span id="data_queue_size"></span></div>
+        <div>version: <span id="version"></span></div>
+        <div>server time: <span id="time"></span></div>
+        </td><td valign="top">
+        <h2>Clients</h2>
+        <table border="1">
+          <tr><td>connected</td><td><span id="client_count"></span></td></tr>
+          <tr><td>subscriptions</td><td><span id="subscription_count"></span></td></tr>
+        </table>
+        </td></tr>
+    <tr><td>&nbsp;</td></tr>
+    <tr><td valign="top">
+        <h2>Round-counters</h2>
+        <table border="1">
+          <tr><td>c_sub_ops</td><td><span id="c_sub_ops"></span></td>
+            <td><span id="sub_ops_speed"></span> ops/sec</td><td>Subscribe / unsubscribe ops</td></tr>
+          <tr><td>c_pub_messages</td><td><span id="c_pub_messages"></span></td>
+            <td><span id="pub_speed"></span> ops/sec</td><td>Messages published</td></tr>
+          <tr><td>c_pub_bytes</td><td><span id="c_pub_bytes"></span></td>
+            <td><span id="pub_bytes_speed"></span>/sec</td><td>Bytes published</td></tr>
+          <tr><td>c_sent_messages</td><td><span id="c_sent_messages"></span></td>
+            <td><span id="sent_speed"></span> ops/sec</td><td>Messages sent</td></tr>
+          <tr><td>c_sent_bytes</td><td><span id="c_sent_bytes"></span></td>
+            <td><span id="sent_bytes_speed"></span>/sec</td><td>Bytes sent</td></tr>
+          <tr><td>c_sent_latency</td><td><span id="c_sent_latency"></span></td>
+            <td><span id="latency_avg"></span> &#x00B5;s avg</td><td>Latency</td></tr>
+        </table>
+      </td><td valign="top">
+        <h2>Cluster</h2>
+        <div>
+          <span id="cluster"></span>
+        </div>
+      </td></tr>
+    </table>
+    <table>
+      <tr>
+        <td><div class="chart" id="ch_pub_messages"></div></td>
+        <td><div class="chart" id="ch_pub_bytes"></div></td>
+        <td><div class="chart" id="ch_sub_ops"></div></td>
+      </tr>
+      <tr>
+        <td><div class="chart" id="ch_sent_messages"></div></td>
+        <td><div class="chart" id="ch_sent_bytes"></div></td>
+        <td><div class="chart" id="ch_sent_latency"></div></td>
+      </tr>
+    </table>
+    <div class="copyright">&copy; 2021 Bohemia Automation / Altertech</div>
+  </body>
+</html>

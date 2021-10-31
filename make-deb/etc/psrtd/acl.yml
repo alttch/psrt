@@ -1,0 +1,18 @@
+# this one is for anonymous
+_:
+  sub:
+    - "#"
+  pub:
+    - "#"
+  admin: true
+#user1:
+  #sub:
+    #- "topic1/#"
+    #- "topic2/+/subtopic"
+    #- "topic3"
+  #pub:
+    #- "topic1/#"
+    #- "topic2/+/subtopic"
+    #- "topic3"
+#admin:
+  #admin: true

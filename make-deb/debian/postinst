@@ -1,0 +1,11 @@
+#!/bin/sh
+
+( useradd -r psrt -s /usr/sbin/nologin -d / || exit 0 )
+systemctl enable psrtd
+cat << EOF
+Service psrtd enabled
+
+To start the server, execute
+
+  systemctl start psrtd
+

@@ -1,0 +1,20 @@
+# this one is for anonymous
+_:
+  sub:
+    - "#"
+  pub:
+    - "#"
+test:
+  sub:
+    - "benchmark/#"
+  pub:
+    - "benchmark/#"
+user1:
+  sub:
+    - "#"
+  pub:
+    - "#"
+admin:
+  admin: true
+replicator:
+  replicator: true
