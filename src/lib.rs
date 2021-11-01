@@ -1,8 +1,6 @@
 //! PubSubRT server, cli and client library
 //!
 //! <https://github.com/alttch/psrt>
-// TODO stats design (outsourced)
-//
 // TODO priorities
 // TODO web sockets
 // TODO admin area
