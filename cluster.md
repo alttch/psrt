@@ -11,10 +11,10 @@
 The cluster nodes have to be placed as near as possible to each other, have low
 network latency between and enough channel bandwidth.
 
-Clustering raises message processing latency, produces additional overhead
-in data processing and is used only for the high availability of pub/sub
-services. It is recommended to keep node amount in a single cluster low (2-3),
-unless higher HA standards are required.
+Clustering raises message latencies, produces additional overhead in data
+processing and is used only for the high availability of pub/sub services. It
+is recommended to keep node amount in a single cluster low (2-3), unless higher
+HA standards are required.
 
 ### Node configuration
 
