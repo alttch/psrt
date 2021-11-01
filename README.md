@@ -116,7 +116,7 @@ monitored in console in real-time. Use "s" key to switch sorting between
 message count and bytes.
 
 <img
-src="https://raw.githubusercontent.com/alttch/psrt/main/screenshots/cli_top.png" width="400" />
+src="https://raw.githubusercontent.com/alttch/psrt/main/screenshots/cli_top.png" />
 
 ## Cargo crate
 
