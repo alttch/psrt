@@ -8,7 +8,7 @@ All numbers are processed as little-endian.
 
 PROTOCOL VERSION: 1
 
-LEN = packet length (4 bytes = u32)
+LEN = data length (4 bytes = u32)
 
 Response codes:
 
