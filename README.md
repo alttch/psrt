@@ -84,7 +84,7 @@ If installed manually, get configuration files from
 <https://github.com/alttch/psrt/tree/main/make-deb/etc/psrtd> or use files from
 *test-configs* directory (need to be edited before use).
 
-If installed from deb-packaged, configuration files are stored in */etc/psrtd*
+If installed from deb-package, configuration files are stored in */etc/psrtd*
 directory.
 
 ## Authentication
