@@ -1,11 +1,15 @@
 #[macro_use]
 extern crate bma_benchmark;
-
+#[macro_use]
+extern crate prettytable;
 use clap::Clap;
 use log::info;
+use num_format::{Locale, ToFormattedString};
+use prettytable::Table;
 use rand::prelude::*;
-use std::sync::Arc;
-use std::time::Duration;
+use std::collections::BTreeMap;
+use std::sync::{atomic, Arc};
+use std::time::{Duration, Instant};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{mpsc, RwLock};
 
@@ -23,6 +27,8 @@ struct Opts {
     user: Option<String>,
     #[clap(short = 'p')]
     password: Option<String>,
+    #[clap(long = "top", about = "monitor the most used topics")]
+    top: bool,
     #[clap(short = 't')]
     topic: Option<String>,
     #[clap(short = 'm', about = "==size to generate")]
@@ -133,6 +139,65 @@ async fn benchmark_message(
         wrk.client.unsubscribe(test_topic.clone()).await.unwrap();
     }
 }
+
+fn prepare_stat_table() -> Table {
+    let mut table = Table::new();
+    let format = prettytable::format::FormatBuilder::new()
+        .column_separator(' ')
+        .borders(' ')
+        .separators(
+            &[prettytable::format::LinePosition::Title],
+            prettytable::format::LineSeparator::new('-', '-', '-', '-'),
+        )
+        .padding(0, 1)
+        .build();
+    table.set_format(format);
+    let titlevec: Vec<prettytable::Cell> = ["topic", "count", "bytes"]
+        .iter()
+        .map(|v| prettytable::Cell::new(v).style_spec("Fb"))
+        .collect();
+    table.set_titles(prettytable::Row::new(titlevec));
+    table
+}
+
+//#[derive(Eq)]
+struct TopicStat {
+    topic: String,
+    count: u64,
+    bytes: u128,
+}
+
+impl TopicStat {
+    fn new(topic: &str) -> Self {
+        Self {
+            topic: topic.to_owned(),
+            count: 0,
+            bytes: 0,
+        }
+    }
+    fn count(&mut self, size: usize) {
+        self.bytes += size as u128;
+        self.count += 1;
+    }
+}
+
+//impl Ord for TopicStat {
+//fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+//self.count.cmp(&other.count)
+//}
+//}
+
+//impl PartialOrd for TopicStat {
+//fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+//Some(self.cmp(other))
+//}
+//}
+
+//impl PartialEq for TopicStat {
+//fn eq(&self, other: &Self) -> bool {
+//self.count == other.count
+//}
+//}
 
 struct MessageTest {
     name: String,
@@ -262,12 +327,22 @@ async fn benchmark(
     staged_benchmark_print!();
 }
 
+#[inline]
+fn parse_topics(topic: Option<&String>) -> Vec<String> {
+    topic
+        .expect(ERR_TOPIC_NOT_SPECIFIED)
+        .split(',')
+        .into_iter()
+        .map(ToOwned::to_owned)
+        .collect::<Vec<String>>()
+}
+
 #[tokio::main(worker_threads = 1)]
 async fn main() {
     let opts = Opts::parse();
     env_logger::Builder::new()
         .target(env_logger::Target::Stdout)
-        .filter_level(if opts.benchmark {
+        .filter_level(if opts.benchmark || opts.top {
             log::LevelFilter::Info
         } else {
             log::LevelFilter::Trace
@@ -296,6 +371,84 @@ async fn main() {
             opts.benchmark_cluster_sub.as_ref(),
         )
         .await;
+    } else if opts.top {
+        static SORT_MODE: atomic::AtomicU8 = atomic::AtomicU8::new(0);
+        macro_rules! cls {
+            () => {
+                print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+            };
+        }
+        let mut client = client::Client::connect(&config).await.unwrap();
+        let mut data_channel = client.take_data_channel().unwrap();
+        let mut topic_stats: BTreeMap<String, TopicStat> = BTreeMap::new();
+        client
+            .subscribe_bulk(parse_topics(opts.topic.as_ref()))
+            .await
+            .unwrap();
+        let client = Arc::new(client);
+        tokio::spawn(async move {
+            loop {
+                signal(SignalKind::interrupt()).unwrap().recv().await;
+                cls!();
+                client.bye().await.unwrap();
+                std::process::exit(0);
+            }
+        });
+        let mut last_refresh: Option<Instant> = None;
+        let show_step = Duration::from_secs(1);
+        let mut table = prepare_stat_table();
+        let getch = getch::Getch::new();
+        std::thread::spawn(move || loop {
+            let ch = getch.getch().unwrap();
+            match ch as char {
+                's' => {
+                    let s = SORT_MODE.load(atomic::Ordering::SeqCst);
+                    SORT_MODE.store(s ^ 1, atomic::Ordering::SeqCst);
+                }
+                _ => {}
+            }
+        });
+        table.add_row(row![' ', ' ', ' ']);
+        cls!();
+        table.printstd();
+        loop {
+            let message = data_channel.recv().await.unwrap();
+            let topic = message.topic();
+            if let Some(stat) = topic_stats.get_mut(topic) {
+                stat.count(message.data().len());
+            } else {
+                let mut stat = TopicStat::new(topic);
+                stat.count(message.data().len());
+                topic_stats.insert(topic.to_owned(), stat);
+            }
+            if let Some(last_refresh) = last_refresh {
+                if last_refresh.elapsed() < show_step {
+                    continue;
+                }
+            }
+            last_refresh = Some(Instant::now());
+            let mut stats: Vec<&TopicStat> = topic_stats.values().collect();
+            stats.sort_by(|a, b| {
+                if SORT_MODE.load(atomic::Ordering::SeqCst) == 0 {
+                    b.count.cmp(&a.count)
+                } else {
+                    b.bytes.cmp(&a.bytes)
+                }
+            });
+            let (_, h) = term_size::dimensions().unwrap();
+            stats.truncate(h - 4);
+            let mut table = prepare_stat_table();
+            for s in stats {
+                let byte = byte_unit::Byte::from_bytes(s.bytes);
+                table.add_row(row![
+                    s.topic,
+                    s.count.to_formatted_string(&Locale::en).replace(',', "_"),
+                    byte.get_appropriate_unit(false)
+                ]);
+            }
+            cls!();
+            table.printstd();
+        }
     } else {
         if opts.message.is_some() {
             config = config.disable_data_stream();
@@ -322,13 +475,7 @@ async fn main() {
             }
         } else {
             let mut data_channel = client.take_data_channel().unwrap();
-            let topics = opts
-                .topic
-                .expect(ERR_TOPIC_NOT_SPECIFIED)
-                .split(',')
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect::<Vec<String>>();
+            let topics = parse_topics(opts.topic.as_ref());
             info!("Listening to {}...", topics.join(", "));
             client.subscribe_bulk(topics).await.unwrap();
             tokio::spawn(async move {
