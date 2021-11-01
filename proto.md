@@ -37,7 +37,7 @@ Server (4 byte): EE AA 01 00 (01 00 - protocol version)
 
 Client: LEN LOGIN 00 PASSWORD (for anonymous login send = 01 00 00 00 00)
 
-Server: 32 bytes (*client token) or closes the socket
+Server: 32 bytes (client token) or closes the socket
 
 ### Keep-alive pings
 
