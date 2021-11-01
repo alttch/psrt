@@ -4,6 +4,7 @@
 // TODO stats design (outsourced)
 //
 // TODO priorities
+// TODO cache password file
 // TODO web sockets
 // TODO admin area
 // TODO keep subscribed topics as chunks
