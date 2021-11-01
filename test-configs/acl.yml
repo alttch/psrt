@@ -4,6 +4,7 @@ _:
     - "#"
   pub:
     - "#"
+  admin: true
 test:
   sub:
     - "benchmark/#"
