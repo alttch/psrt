@@ -44,6 +44,9 @@ Server: 32 bytes (client token) or closes the socket
 The client MUST ping the server by sending OP\_NOP with frequency higher than
 the server timeout, otherwise the socket is automatically closed by the server.
 
+Any other control frame can be used as keep-alive signal as well. So ff the
+client sends many control frames, ping frames can be delayed or omitted.
+
 ### Subscribe
 
 OP\_SUBCRIBE = 0x02
