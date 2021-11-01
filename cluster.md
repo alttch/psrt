@@ -45,7 +45,7 @@ having list of neighbors configured in the cluster configuration YAML file.
   replicate all topics.
 
 * To enable clustering, license keys must be uploaded to all cluster nodes. A
-  license key is individual for each node in cluster.
+  license key is individual for the each node in cluster.
 
 * Paths to license key files must be set in "server/license" field of the main
   configuration file.
