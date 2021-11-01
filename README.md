@@ -27,7 +27,7 @@ enterprise setups.
 
 * PSRT is the protocol, optimized for large (65K+) message payloads
 * No QoS - all messages are always delivered to subscribers only once, so
-  consider it is always QoS=2 if using MQTT measurements
+  consider it is always QoS=2 if use MQTT measurements
 * No retain topics. Retains usually require disk writes, which produce
   additional overhead
 * No OP-ACK loops. All control operations are fast, synchronous and atomic
