@@ -38,7 +38,7 @@ enterprise setups.
 * PSRT is almost 100% logically compatible with MQTT, so software can be
   switched to it and vice versa with only a couple of lines of code
 
-# What is the same?
+## What is the same?
 
 PSRT is logically the same as MQTT: same format for topics, same format for
 topic masks etc:
