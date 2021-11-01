@@ -1,6 +1,4 @@
-# PSRT protocol specifications
-
-Pub/Sub Realtime Telemetry Protocol
+# Pub/Sub Realtime Telemetry Protocol (PSRT) Specifications
 
 ## Common
 
