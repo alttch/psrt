@@ -111,7 +111,7 @@ If the anonymous user has no admin rights, URI requires login and password
 
 ### Most used topic
 
-Executing **psrt-cli** with **--top** argument, the most used topics can be
+Executing **psrt-cli** with *--top* argument, the most used topics can be
 monitored in console in real-time. Use "s" key to switch sorting between
 message count and bytes.
 
