@@ -117,6 +117,9 @@ curl http://localhost:2884/status
 If the anonymous user has no admin rights, URI requires login and password
 (HTTP basic auth).
 
+Passwords file and ACL can be reloaded on-the-flow. Use either *kill -1
+$SERVER_PID* or *systemctl reload psrtd* (if systemd service is configured).
+
 ### Most used topics
 
 By executing **psrt-cli** with *--top* argument, the most used topics can be
