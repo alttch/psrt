@@ -1423,7 +1423,7 @@ mod stats {
 
     pub async fn start(path: &str) {
         let addr: SocketAddr = path.parse().unwrap();
-        log::trace!("Starting stats server at {}", addr);
+        log::info!("binding stats server to: {}", addr);
         let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handler)) });
         tokio::spawn(async move {
             loop {
