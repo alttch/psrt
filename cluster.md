@@ -1,15 +1,20 @@
 # PubSubRT clusters
 
-* Clusters are supported with PSRT enterprise version only.
+* Clusters are supported with PubSubRT Enterprise version only.
 
-* If you do not have valid PSRT enterprise license, please contact
+* If you do not have valid PubSubRT Enterprise license, please contact
   [Altertech](https://www.altertech.com/order/?id=psrt) for quotes and contract
   details.
 
 ## Cluster nodes
 
-The cluster nodes have to be placed as near as possible, have low network
-latency between and enough channel bandwidth.
+The cluster nodes have to be placed as near as possible to each other, have low
+network latency between and enough channel bandwidth.
+
+Clustering raises message processing latency, produces additional overhead
+in data processing and is used only for the high availability of pub/sub
+services. It is recommended to keep node amount in a single cluster low (2-3),
+unless higher HA standards are required.
 
 ### Node configuration
 
