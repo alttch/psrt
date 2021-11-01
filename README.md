@@ -117,7 +117,7 @@ curl http://localhost:2884/status
 If the anonymous user has no admin rights, URI requires login and password
 (HTTP basic auth).
 
-### Most used topic
+### Most used topics
 
 Executing **psrt-cli** with *--top* argument, the most used topics can be
 monitored in console in real-time. Use "s" key to switch sorting between
