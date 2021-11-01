@@ -121,3 +121,11 @@ Download packages from <https://get.eva-ics.com/psrt-enterprise/>
 
 [Cluster setup
 instructions](https://github.com/alttch/psrt/blob/main/cluster.md)
+
+## About authors
+
+[Bohemia Automation](https://bma.ai) / [Altertech](https://www.altertech.com)
+is a group of companies with 15+ years of experience in the enterprise
+automation and indusrial IoT. Our setups include power plants, factories and
+urban infrastructure. Largest of them have 1M+ sensors and controlled items and
+the bar raises upper and upper every day.
