@@ -1,33 +1,47 @@
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PubSubRT stats</title>
     <script src="chart.min.js"></script>
-  <style type="text/css">
-  body { font-size: 14px; font-family: Verdana, Arial, Helvetica, sans-serif; background-color: #111111;
-    color: #dedede; }
-  .copyright {
-    margin-top: 20px; font-size: 12px;
-  }
-  .online {
-    color: green;
-  }
-  .offline {
-    color: red;
-  }
-  .unavailable {
-    color: red;
-  }
-  .waiting {
-    color: grey;
-  }
-  .connecting {
-    color: orange;
-  }
-  .chart { width: 400px; margin-top: 20px; }
-  a { color: #dedede }
-  a:visited { color: #dedede; }
-  td { white-space: nowrap; }
-  </style>
+    <style type="text/css">
+      .online { color: #57CA3B; }
+      .offline { color: #FF1616; }
+      .unavailable { color: #FF1616; }
+      .waiting { color: #636363; }
+      .connecting { color: orange; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-size: 15px; line-height: 18px; font-family: Arial, sans-serif; background: #2e2e2e; color: #fff; }
+      .container { max-width: 1150px; margin: auto; padding: 12px; }
+      h1 { margin: 0 0 32px; font-size: 44px; line-height: 44px; padding-top: 20px; padding-left: 80px; color: #FF1616;
+        background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3e%3cpath fill-rule='evenodd' clip-rule='evenodd' d='M7.38172 56.4317C6.81807 55.8695 6.8126 54.9609 7.3695 54.4023L20.5534 41.1775L12.4848 41.1404C11.6925 41.1367 11.0472 40.4913 11.0435 39.6988C11.0399 38.9062 11.6792 38.2667 12.4716 38.2704L23.9969 38.3234C24.3774 38.3251 24.743 38.478 25.0133 38.7484C25.2836 39.0187 25.4364 39.3844 25.4382 39.765L25.4929 51.6723C25.4966 52.4648 24.8572 53.1044 24.0649 53.1007C23.2725 53.0971 22.6272 52.4516 22.6236 51.6591L22.5848 43.2232L9.41064 56.4381C8.85374 56.9967 7.94536 56.9939 7.38172 56.4317Z' fill='%23FF1616'/%3e%3cellipse cx='31.9037' cy='32' rx='6.72673' ry='6.72671' fill='white'/%3e%3cpath d='M38.413 23.4355C37.8509 23.9992 37.9881 25.0478 38.5518 25.6099C39.1155 26.172 40.0282 26.1707 40.5903 25.607L49.4313 16.7409L54.2263 21.702C54.3292 21.8083 54.4534 21.9258 54.5975 21.9739C54.7855 22.0637 54.9712 22.0509 55.1935 22.0509C55.9896 22.0509 56.7709 21.5529 56.7709 20.7568V8.78457C56.7709 8.40228 56.619 8.03564 56.3487 7.76532C56.0784 7.495 55.5758 7.20723 55.1935 7.20723H43.6139C42.8178 7.20723 42.1724 7.85259 42.1724 8.64867C42.1724 9.02149 42.314 9.36124 42.5462 9.61714C42.5682 9.64745 42.5929 9.6769 42.6204 9.70527L47.2906 14.5327L38.413 23.4355Z' fill='white'/%3e%3cpath d='M38.413 40.5531C37.8509 39.9894 37.9881 38.9409 38.5518 38.3787C39.1155 37.8166 40.0282 37.8179 40.5903 38.3816L49.4313 47.2477L54.2263 42.2867C54.3292 42.1803 54.4534 42.0628 54.5975 42.0148C54.7855 41.9249 54.9712 41.9378 55.1935 41.9378C55.9896 41.9378 56.7709 42.4358 56.7709 43.2319V55.204C56.7709 55.5863 56.619 55.953 56.3487 56.2233C56.0784 56.4936 55.5758 56.7814 55.1935 56.7814H43.6139C42.8178 56.7814 42.1724 56.136 42.1724 55.3399C42.1724 54.9671 42.314 54.6274 42.5462 54.3715C42.5682 54.3412 42.5929 54.3117 42.6204 54.2833L47.2906 49.4559L38.413 40.5531Z' fill='white'/%3e%3cpath d='M25.5657 23.4355C26.1279 23.9992 25.9907 25.0478 25.4269 25.6099C24.8632 26.172 23.9506 26.1707 23.3884 25.607L14.5475 16.7409L9.75249 21.702C9.64958 21.8083 9.52542 21.9258 9.38128 21.9739C9.19326 22.0637 9.00755 22.0509 8.78526 22.0509C7.98918 22.0509 7.20791 21.5529 7.20791 20.7568V8.78457C7.20791 8.40228 7.35978 8.03564 7.6301 7.76532C7.90042 7.495 8.40296 7.20723 8.78525 7.20723H20.3649C21.161 7.20723 21.8063 7.85259 21.8063 8.64867C21.8063 9.02149 21.6648 9.36124 21.4325 9.61714C21.4105 9.64745 21.3858 9.6769 21.3584 9.70527L16.6882 14.5327L25.5657 23.4355Z' fill='white'/%3e%3c/svg%3e") 0 0 no-repeat;
+      }
+      h2 { font-size: 28px; font-weight: 500; line-height: 34px; color: #f1f1f1; margin: 0 0 12px; }
+      .content { display: flex; flex-wrap: wrap; }
+      .col-1, .col-2 { width: 100%; }
+      .status { padding: 8px; line-height: 24px; background: #222; }
+      .col-1 > div, .col-2 > div { margin-bottom: 20px; }
+      .status div:not(:last-child) { margin-bottom: 8px; }
+      table { width: 100%; background: #222; border: none; border-collapse: collapse; font-size: 16px;}
+      td { border: 1px solid #545454; padding: 10.5px 6px; }
+      .data-cell { text-align: right; }
+      .color-grey { color: #636363; font-size: 12px; }
+      .copyright { font-size: 14px; }
+      a { color: #fff; }
+      a:visited { color: #fff; }
+      a:hover { color: orange; }
+      .charts { display: flex; flex-wrap: wrap; justify-content: space-between; }
+      .chart { width: 100%; border-radius: 4px; box-shadow: 2px 4px 6px rgba(30, 30, 31, 0.34); background: #222; margin-bottom: 20px; }
+      @media screen and (min-width: 768px) {
+        .container { padding: 20px; }
+        .col-1 { width: 60%; }
+        .col-2 { width: 40%; padding-left: 20px; }
+        .chart { width: calc(50% - 15px) }
+      }
+      @media screen and (min-width: 992px) {
+        .col-2 { padding-left: 50px; }
+        .chart { width: calc(33% - 20px); }
+      }
+    </style>
   </head>
   <script type="text/javascript">
     var chart_sub_ops;
@@ -69,7 +83,7 @@
           options: { animation: false,
             scales: {
               y: { grid: { color: "#333333" }, beginAtZero: true, ticks: ytickcfg },
-              x: { grid: { color: "#333333" }, ticks: { display: false } }
+              x: { grid: { color: "#333333", tickLength: 0 }, ticks: { display: false } }
             }
           }
       });
@@ -174,9 +188,9 @@
             }
             data_prev = data;
             if (data.cluster == null) {
-              set_el("cluster", "not configured");
+              set_el("cluster", "<span style='color: #636363'>not configured</span>");
             } else {
-              let cluster_table = "<table border='1'><tr><td>node</td><td>status</td></tr>";
+              let cluster_table = "<table><tr style='font-weight: bold; color: #959595'><td>node</td><td>status</td></tr>";
               for (let [key, val] of Object.entries(data.cluster)) {
                 cluster_table += `<tr><td>${key}</td><td><span class="${val}">${val}</span></td></tr>`;
               }
@@ -195,63 +209,95 @@
     }
   </script>
   <body onload="start()">
-    <h1>PubSubRT</h1>
-    <table width="100%">
-      <tr><td width="70%" valign="top">
-        <h2>Server info</h2>
-        <div>host: <span id="host" style="font-weight: bold"></span></div>
-        <div>status: <span id="status" style="font-weight: bold"><span class="connecting">connecting...</span></span></div>
-        <div>uptime: <span id="uptime"></span> sec</div>
-        <div>data queue size: <span id="data_queue_size"></span></div>
-        <div>version: <span id="version"></span></div>
-        <div>server time: <span id="time"></span></div>
-        </td><td valign="top">
-        <h2>Clients</h2>
-        <table border="1">
-          <tr><td>connected</td><td><span id="client_count"></span></td></tr>
-          <tr><td>subscriptions</td><td><span id="subscription_count"></span></td></tr>
-        </table>
-        </td></tr>
-    <tr><td>&nbsp;</td></tr>
-    <tr><td valign="top">
-        <h2>Round-counters</h2>
-        <table border="1">
-          <tr><td>c_sub_ops</td><td><span id="c_sub_ops"></span></td>
-            <td><span id="sub_ops_speed"></span> ops/sec</td><td>Subscribe / unsubscribe ops</td></tr>
-          <tr><td>c_pub_messages</td><td><span id="c_pub_messages"></span></td>
-            <td><span id="pub_speed"></span> ops/sec</td><td>Messages published</td></tr>
-          <tr><td>c_pub_bytes</td><td><span id="c_pub_bytes"></span></td>
-            <td><span id="pub_bytes_speed"></span>/sec</td><td>Bytes published</td></tr>
-          <tr><td>c_sent_messages</td><td><span id="c_sent_messages"></span></td>
-            <td><span id="sent_speed"></span> ops/sec</td><td>Messages sent</td></tr>
-          <tr><td>c_sent_bytes</td><td><span id="c_sent_bytes"></span></td>
-            <td><span id="sent_bytes_speed"></span>/sec</td><td>Bytes sent</td></tr>
-          <tr><td>c_sent_latency</td><td><span id="c_sent_latency"></span></td>
-            <td><span id="latency_avg"></span> &#x00B5;s avg</td><td>Latency</td></tr>
-        </table>
-      </td><td valign="top">
-        <h2>Cluster</h2>
-        <div>
-          <span id="cluster"></span>
+    <div class="container">
+      <h1>PubSubRT</h1>
+      <div class="content">
+        <div class="col-1">
+          <h2>Server info</h2>
+          <div class="status">
+            <div>host: <span id="host"></span></div>
+            <div>status: <span id="status"><span class="connecting">connecting...</span></span></div>
+            <div>uptime: <span id="uptime"></span><span> sec</span></div>
+            <div>data queue size: <span id="data_queue_size"></span></div>
+            <div>version: <span id="version"></span></div>
+            <div>server time: <span id="time"></span></div>
+          </div>
+          <div class="counters">
+            <h2>Round-counters</h2>
+            <table>
+              <tr>
+                <td>c_sub_ops</td>
+                <td class="data-cell"><span id="c_sub_ops" class="color-grey"></span></td>
+                <td class="data-cell"><span id="sub_ops_speed"></span> ops/sec</td>
+                <td>Subscribe / unsubscribe ops</td></tr>
+              <tr>
+                <td>c_pub_messages</td>
+                <td class="data-cell"><span id="c_pub_messages" class="color-grey"></span></td>
+                <td class="data-cell"><span id="pub_speed"></span> ops/sec</td>
+                <td>Messages published</td>
+              </tr>
+              <tr>
+                <td>c_pub_bytes</td>
+                <td class="data-cell"><span id="c_pub_bytes" class="color-grey"></span></td>
+                <td class="data-cell"><span id="pub_bytes_speed"></span> bytes/sec</td>
+                <td>Bytes published</td>
+              </tr>
+              <tr>
+                <td>c_sent_messages</td>
+                <td class="data-cell"><span id="c_sent_messages" class="color-grey"></span></td>
+                <td class="data-cell"><span id="sent_speed"></span> ops/sec</td>
+                <td>Messages sent</td>
+              </tr>
+              <tr>
+                <td>c_sent_bytes</td>
+                <td class="data-cell"><span id="c_sent_bytes" class="color-grey"></span></td>
+                <td class="data-cell"><span id="sent_bytes_speed"></span> bytes/sec</td>
+                <td>Bytes sent</td>
+              </tr>
+              <tr>
+                <td>c_sent_latency</td>
+                <td class="data-cell"><span id="c_sent_latency" class="color-grey"></span></td>
+                <td class="data-cell"><span id="latency_avg"></span> &#x00B5;s, avg</td>
+                <td>Latency</td>
+              </tr>
+            </table>
+          </div>
         </div>
-      </td></tr>
-    </table>
-    <table>
-      <tr>
-        <td><div class="chart" id="ch_pub_messages"></div></td>
-        <td><div class="chart" id="ch_pub_bytes"></div></td>
-        <td><div class="chart" id="ch_sub_ops"></div></td>
-      </tr>
-      <tr>
-        <td><div class="chart" id="ch_sent_messages"></div></td>
-        <td><div class="chart" id="ch_sent_bytes"></div></td>
-        <td><div class="chart" id="ch_sent_latency"></div></td>
-      </tr>
-    </table>
-    <div class="copyright">
-      <a href="https://github.com/alttch/psrt/">PubSubRT</a>
-      &copy; 2021
-      <a href="https://www.bohemia-automation.com">Bohemia Automation</a> /
-      <a href="https://www.altertech.com">Altertech</a></div>
+        <div class="col-2">
+          <div>
+            <h2>Clients</h2>
+            <table>
+              <tr>
+                <td>connected</td>
+                <td><span id="client_count"></span></td>
+              </tr>
+              <tr>
+                <td>subscriptions</td>
+                <td><span id="subscription_count"></span></td>
+              </tr>
+            </table>
+          </div>
+
+          <div>
+            <h2>Cluster</h2>
+            <div id="cluster"></div>       
+          </div>
+        </div>
+      </div>
+      <div class="charts">
+        <div class="chart" id="ch_pub_messages"></div>
+        <div class="chart" id="ch_pub_bytes"></div>
+        <div class="chart" id="ch_sub_ops"></div>
+        <div class="chart" id="ch_sent_messages"></div>
+        <div class="chart" id="ch_sent_bytes"></div>
+        <div class="chart" id="ch_sent_latency"></div>
+      </div>
+      <div class="copyright">
+        <a href="https://github.com/alttch/psrt/">PubSubRT</a>
+        &copy; 2021
+        <a href="https://www.bohemia-automation.com/" class="bohemia">Bohemia Automation</a> /
+        <a href="https://www.altertech.com">Altertech</a>
+      </div>
+    </div>
   </body>
 </html>
