@@ -4,7 +4,6 @@
 // TODO stats design (outsourced)
 //
 // TODO priorities
-// TODO cache password file
 // TODO web sockets
 // TODO admin area
 // TODO keep subscribed topics as chunks
@@ -618,6 +617,8 @@ pub mod client;
 pub mod comm;
 #[cfg(feature = "cluster")]
 pub mod replication;
+#[cfg(feature = "server")]
+pub mod passwords;
 
 #[cfg(test)]
 mod test {

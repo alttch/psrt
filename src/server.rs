@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
 
-use tokio::fs;
 use tokio::io::AsyncReadExt;
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::signal::unix::{signal, SignalKind};
@@ -116,7 +115,7 @@ macro_rules! format_login {
 
 lazy_static! {
     static ref DB: RwLock<ServerClientDB> = RwLock::new(<_>::default());
-    static ref PASSWORD_FILE: RwLock<Option<String>> = RwLock::new(None);
+    static ref PASSWORD_DB: RwLock<psrt::passwords::Passwords> = RwLock::new(<_>::default());
     static ref STATS_COUNTERS: RwLock<Counters> = RwLock::new(Counters::new());
     static ref PID_FILE: Mutex<Option<String>> = Mutex::new(None);
     static ref HOST_NAME: RwLock<String> = RwLock::new("unknown".to_owned());
@@ -531,16 +530,9 @@ async fn init_stream(
 /// # Errors
 ///
 /// Will return Err if no password fine defined or unable to read
-pub async fn authenticate(login: &str, password: &str) -> Result<bool, Error> {
-    if let Some(pfile) = PASSWORD_FILE.read().await.as_ref() {
-        let data = fs::read_to_string(pfile)
-            .await
-            .map_err(|e| Error::io(format!("Unable to read password file {}: {}", pfile, e)))?;
-        let htpasswd = htpasswd_verify::load(&data);
-        Ok(htpasswd.check(login, password))
-    } else {
-        Err(Error::access("No password file defined"))
-    }
+#[inline]
+pub async fn authenticate(login: &str, password: &str) -> bool {
+    PASSWORD_DB.read().await.verify(login, password)
 }
 
 #[inline]
@@ -581,7 +573,7 @@ async fn handle_stream(
                 addr
             )));
         }
-    } else if authenticate(login, password).await? {
+    } else if authenticate(login, password).await {
         trace!("User {} logged in from {}", login, addr);
     } else {
         trace!("Access denied for {} from {}", login, addr);
@@ -977,16 +969,8 @@ async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
         if !ALLOW_ANONYMOUS.load(atomic::Ordering::SeqCst) {
             return Err((Error::access("anonymous access failed"), need_ack));
         }
-    } else {
-        match authenticate(login, password).await {
-            Ok(false) => {
-                return Err((Error::access("authentication failed"), need_ack));
-            }
-            Err(e) => {
-                return Err((e, need_ack));
-            }
-            _ => {}
-        }
+    } else if !authenticate(login, password).await {
+        return Err((Error::access("authentication failed"), need_ack));
     }
     let acl = if let Some(acl) = get_acl(login).await {
         acl
@@ -1200,12 +1184,6 @@ fn main() {
     MAX_TOPIC_LENGTH.store(config.server.max_topic_length, atomic::Ordering::SeqCst);
     MAX_PUB_SIZE.store(config.server.max_pub_size, atomic::Ordering::SeqCst);
     psrt::set_max_topic_depth(config.server.max_topic_depth);
-    if let Some(ref f) = config.auth.password_file {
-        PASSWORD_FILE
-            .try_write()
-            .unwrap()
-            .replace(format_path!(f.clone()));
-    }
     if opts.daemonize {
         if let Ok(fork::Fork::Child) = fork::daemon(true, false) {
             std::process::exit(0);
@@ -1216,11 +1194,24 @@ fn main() {
         .enable_all()
         .build()
         .unwrap();
+    macro_rules! reload_passwords {
+        ($db: expr) => {
+            if let Err(e) = $db.reload().await {
+                error!("Unable to load password file: {}", e);
+            }
+        };
+    }
     rt.block_on(async move {
         {
-            let mut acl = ACL_DB.try_write().unwrap();
+            let mut acl = ACL_DB.write().await;
             acl.set_path(&format_path!(config.auth.acl));
             acl.reload().await.unwrap();
+        }
+        if let Some(ref f) = config.auth.password_file {
+            let mut passwords = PASSWORD_DB.write().await;
+            let pfile = format_path!(f.clone());
+            passwords.set_password_file(&pfile);
+            reload_passwords!(passwords);
         }
         handle_term_signal!(SignalKind::interrupt(), false);
         handle_term_signal!(SignalKind::terminate(), true);
@@ -1241,6 +1232,9 @@ fn main() {
                 {
                     if let Err(e) = acl_dbm!().reload().await {
                         error!("ACL reload failed: {}", e);
+                    }
+                    {
+                        reload_passwords!(PASSWORD_DB.write().await);
                     }
                 }
             }
@@ -1380,18 +1374,12 @@ mod stats {
             };
             let mut authorized = false;
             if let Some((ref login, ref password)) = credentials {
-                match super::authenticate(login, password).await {
-                    Ok(true) => {
-                        if let Some(acl) = super::get_acl(login).await {
-                            if acl.is_admin() {
-                                authorized = true;
-                            }
+                if super::authenticate(login, password).await {
+                    if let Some(acl) = super::get_acl(login).await {
+                        if acl.is_admin() {
+                            authorized = true;
                         }
                     }
-                    Err(e) => {
-                        return response!(StatusCode::INTERNAL_SERVER_ERROR, e.to_string());
-                    }
-                    _ => {}
                 }
             } else if let Some(acl) = super::get_acl("_").await {
                 if acl.is_admin() {
