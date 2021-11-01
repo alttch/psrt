@@ -11,6 +11,10 @@ low latency, dealing with slow channels and large payloads.
 PSRT can process 100K+ messages on a single node with very low latencies
 (<1ms). Speeds are reasonable (1K+ ops/sec) even with enormous (1M+) payloads.
 
+Topic subscriptions in PubSubRT are processed with B-tree algorithms, which
+allows the server to handle hundred thousands subscriptions without any speed
+loss.
+
 ## Why not MQTT?
 
 We love MQTT. And we use MQTT a lot. There are cases where MQTT ideally fits
