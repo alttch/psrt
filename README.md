@@ -25,7 +25,7 @@ enterprise setups.
 
 ## What is the difference?
 
-* PSRT is the protocol, optimized for large (65K+) messages
+* PSRT is the protocol, optimized for large (65K+) message payloads
 * No QoS - all messages are always delivered to subscribers only once, so
   consider it is always QoS=2 if using MQTT measurements
 * No retain topics. Retains usually require disk writes, which produce
