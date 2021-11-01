@@ -91,11 +91,13 @@ PubSubRT uses the standard *htpasswd* format, use any htpasswd-compatible tool
 
 ## Statistical data
 
+### Overview (web interface / API)
+
 Users with admin rights can obtain statistical data using a web browser (by
 default, at http://localhost:2884).
 
 <img
-src="https://raw.githubusercontent.com/alttch/psrt/main/status-preview.png"
+src="https://raw.githubusercontent.com/alttch/psrt/main/screenshots/web_status.png"
 width="750" />
 
 The data can also be obtained in JSON for 3rd-party apps at:
@@ -106,6 +108,15 @@ curl http://localhost:2884/status
 
 If the anonymous user has no admin rights, URI requires login and password
 (HTTP basic auth).
+
+### Most used topic
+
+Executing **psrt-cli** with **--top** argument, the most used topics can be
+monitored in console in real-time. Use "s" key to switch sorting between
+message count and bytes.
+
+<img
+src="https://raw.githubusercontent.com/alttch/psrt/main/screenshots/cli_top.png" width="400" />
 
 ## Cargo crate
 
