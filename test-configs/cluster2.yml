@@ -1,8 +1,8 @@
-- path: 127.0.0.1:2883
+- path: 127.0.0.1:2873
   user: replicator
   password: xxx
   timeout: 5
-#- path: 127.0.0.1:4883
+#- path: 127.0.0.1:4873
   #user: replicator
   #password: xxx
   #tls: true

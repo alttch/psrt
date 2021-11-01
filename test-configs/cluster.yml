@@ -1,10 +1,10 @@
-- path: localhost:3883
+- path: localhost:3873
   user: replicator
   password: xxx
   timeout: 5
   #tls: true
   #tls_ca: certs/ca.crt
-#- path: 127.0.0.1:4883
+#- path: 127.0.0.1:4873
   #user: replicator
   #password: xxx
   #tls: true

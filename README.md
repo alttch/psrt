@@ -105,7 +105,7 @@ $SERVER_PID* or *systemctl reload psrtd* (if systemd service is configured).
 ### Overview (web interface / API)
 
 Users with admin rights can obtain statistical data using a web browser (by
-default, at http://localhost:2884).
+default, at http://localhost:8880).
 
 <img
 src="https://raw.githubusercontent.com/alttch/psrt/main/screenshots/web_status.png"
@@ -114,7 +114,7 @@ width="750" />
 The data can also be obtained in JSON for 3rd-party apps at:
 
 ```shell
-curl http://localhost:2884/status
+curl http://localhost:8880/status
 ```
 
 If the anonymous user has no admin rights, URI requires login and password

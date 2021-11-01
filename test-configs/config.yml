@@ -12,12 +12,12 @@ server:
   # max pub frame size (topic + data, bytes)
   max_pub_size: 1100000
   pid_file: /tmp/psrtd.pid
-  bind_stats: 0.0.0.0:2884
+  bind_stats: 0.0.0.0:8880
   # remove for free version
   license: /opt/workstuff/psrt-license.key
 proto:
-  bind: 0.0.0.0:2883
-  bind_udp: 0.0.0.0:2883
+  bind: 0.0.0.0:2873
+  bind_udp: 0.0.0.0:2873
   # max udp frame size
   udp_frame_size: 8192
   tls_cert: certs/server.crt

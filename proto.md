@@ -2,7 +2,7 @@
 
 ## Common
 
-Default port: 2883
+Default port: 2873
 
 All numbers are processed as little-endian.
 

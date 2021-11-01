@@ -28,11 +28,11 @@ having list of neighbors configured in the cluster configuration YAML file.
   following format:
 
 ```yaml
-- path: node2:2883
+- path: node2:2873
   user: repl
   password: "123"
   timeout: 5
-- path: node3:2883
+- path: node3:2873
   user: repl
   password: "password"
   #tls: true
