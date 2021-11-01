@@ -82,7 +82,7 @@ cargo build --features server,cli --release
 
 If installed manually, get configuration files from
 <https://github.com/alttch/psrt/tree/main/make-deb/etc/psrtd> or use files from
-*example-configs* directory (need to be edited before use).
+*test-configs* directory (need to be edited before use).
 
 ## Authentication
 
