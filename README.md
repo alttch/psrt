@@ -141,7 +141,7 @@ Download packages from <https://get.eva-ics.com/psrt-enterprise/>
 [Cluster setup
 instructions](https://github.com/alttch/psrt/blob/main/cluster.md)
 
-## About authors
+## About the authors
 
 [Bohemia Automation](https://www.bohemia-automation.com) /
 [Altertech](https://www.altertech.com) is a group of companies with 15+ years
