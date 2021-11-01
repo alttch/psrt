@@ -126,6 +126,6 @@ instructions](https://github.com/alttch/psrt/blob/main/cluster.md)
 
 [Bohemia Automation](https://bma.ai) / [Altertech](https://www.altertech.com)
 is a group of companies with 15+ years of experience in the enterprise
-automation and indusrial IoT. Our setups include power plants, factories and
+automation and industrial IoT. Our setups include power plants, factories and
 urban infrastructure. Largest of them have 1M+ sensors and controlled items and
 the bar raises upper and upper every day.
