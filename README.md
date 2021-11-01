@@ -29,7 +29,7 @@ enterprise setups.
 * No OP-ACK loops. All control operations are fast, synchronous and atomic
 * Two TCP sockets: one for control ops and the second one for incoming
   messages. This makes clients a bit more complicated, but allows to process
-  incoming messages without additional overhead. Additionally, with two sockets
+  incoming messages without any extra overhead. Additionally, with two sockets
   control op acknowledgements and incoming message data can be mixed, which is
   important when large messages are processed on slow channels
 * Devices and nodes, which do not need subscriptions, can use either a single
@@ -37,6 +37,15 @@ enterprise setups.
   datagrams with or without acknowledge from the server
 * PSRT is almost 100% logically compatible with MQTT, so software can be
   switched to it and vice versa with only a couple of lines of code
+
+# What is the same?
+
+PSRT is logically the same as MQTT: same format for topics, same format for
+topic masks etc:
+
+* path/to/topic - an individual topic (subscribe / publish)
+* path/to/# - all topics under the specified path (subscribe)
+* path/+/some/+/topic - all topics matching the mask ("+" for any subtopic)
 
 ## About the repository
 
