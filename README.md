@@ -87,6 +87,11 @@ If installed manually, get configuration files from
 If installed from deb-package, configuration files are stored in */etc/psrtd*
 directory.
 
+## Problems
+
+If any problems occur, try running **psrtd** with *-v* argument to get verbose
+logging in terminal.
+
 ## Authentication
 
 PubSubRT uses the standard *htpasswd* format, use any htpasswd-compatible tool
