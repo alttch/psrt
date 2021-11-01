@@ -22,7 +22,7 @@ Response codes:
 
 Data sockets usually use the same port as control ones.
 
-Priority byte is not used at the moment (reserved for the future) and should be
+Priority byte is not used at the moment (reserved for future) and should be
 always 0x7F.
 
 ## Control socket
