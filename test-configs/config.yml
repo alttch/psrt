@@ -18,6 +18,8 @@ server:
 proto:
   bind: 0.0.0.0:2883
   bind_udp: 0.0.0.0:2883
+  # max udp frame size
+  udp_frame_size: 8192
   tls_cert: certs/server.crt
   # only RSA private keys are supported
   tls_key: certs/server.key

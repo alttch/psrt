@@ -59,7 +59,7 @@ use serde::{Deserialize, Serialize};
 
 const ERR_INVALID_DATA_BLOCK: &str = "Invalid data block";
 const MAX_AUTH_FRAME_SIZE: usize = 1024;
-const UDP_BUF_LEN: usize = 65500;
+const DEFAULT_UDP_FRAME_SIZE: u16 = 4096;
 
 static ALLOW_ANONYMOUS: atomic::AtomicBool = atomic::AtomicBool::new(false);
 static MAX_PUB_SIZE: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
@@ -742,6 +742,7 @@ struct ConfigAuth {
 struct ConfigProto {
     bind: String,
     bind_udp: Option<String>,
+    udp_frame_size: Option<u16>,
     timeout: f64,
     tls_cert: Option<String>,
     tls_key: Option<String>,
@@ -860,41 +861,44 @@ async fn run_server(
         warn!("cluster feature is disabled");
     }
     if let Some(ref bind_udp) = config.proto.bind_udp {
-        info!("binding UDP socket to: {}", bind_udp);
+        let udp_frame_size = config
+            .proto
+            .udp_frame_size
+            .unwrap_or(DEFAULT_UDP_FRAME_SIZE);
+        info!(
+            "binding UDP socket to: {}, max frame size: {}",
+            bind_udp, udp_frame_size
+        );
         let udp_sock = UdpSocket::bind(bind_udp).await?;
         tokio::spawn(async move {
-            let mut buf: [u8; UDP_BUF_LEN] = [0; UDP_BUF_LEN];
+            let mut buf = vec![0u8; udp_frame_size as usize];
             loop {
                 match udp_sock.recv_from(&mut buf).await {
                     Ok((len, addr)) => {
                         trace!("udp packet {} bytes from {}", len, addr);
-                        if len > UDP_BUF_LEN {
-                            error!("udp packet from {} is too large ({})", addr, len);
-                        } else {
-                            let frame: Vec<u8> = buf[..len].iter().copied().collect();
-                            let ack_code = match process_udp_packet(frame).await {
-                                Ok(true) => Some(RESPONSE_OK),
-                                Err((e, need_ack)) => {
-                                    error!("udp packet from {} error: {}", addr, e);
-                                    if need_ack {
-                                        if e.kind() == psrt::ErrorKind::AccessDenied {
-                                            Some(RESPONSE_ERR_ACCESS)
-                                        } else {
-                                            Some(RESPONSE_ERR)
-                                        }
+                        let frame: Vec<u8> = buf[..len].iter().copied().collect();
+                        let ack_code = match process_udp_packet(frame).await {
+                            Ok(true) => Some(RESPONSE_OK),
+                            Err((e, need_ack)) => {
+                                error!("udp packet from {} error: {}", addr, e);
+                                if need_ack {
+                                    if e.kind() == psrt::ErrorKind::AccessDenied {
+                                        Some(RESPONSE_ERR_ACCESS)
                                     } else {
-                                        None
+                                        Some(RESPONSE_ERR)
                                     }
+                                } else {
+                                    None
                                 }
-                                _ => None,
-                            };
-                            if let Some(code) = ack_code {
-                                let mut buf = CONTROL_HEADER.to_vec();
-                                buf.extend(&psrt::PROTOCOL_VERSION.to_le_bytes());
-                                buf.push(code);
-                                if let Err(e) = udp_sock.send_to(&buf, addr).await {
-                                    error!("{}", e);
-                                }
+                            }
+                            _ => None,
+                        };
+                        if let Some(code) = ack_code {
+                            let mut buf = CONTROL_HEADER.to_vec();
+                            buf.extend(&psrt::PROTOCOL_VERSION.to_le_bytes());
+                            buf.push(code);
+                            if let Err(e) = udp_sock.send_to(&buf, addr).await {
+                                error!("{}", e);
                             }
                         }
                     }
