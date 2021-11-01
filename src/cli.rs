@@ -338,6 +338,7 @@ fn parse_topics(topic: Option<&String>) -> Vec<String> {
 }
 
 #[tokio::main(worker_threads = 1)]
+#[allow(clippy::too_many_lines)]
 async fn main() {
     let opts = Opts::parse();
     env_logger::Builder::new()
@@ -400,12 +401,9 @@ async fn main() {
         let getch = getch::Getch::new();
         std::thread::spawn(move || loop {
             let ch = getch.getch().unwrap();
-            match ch as char {
-                's' => {
-                    let s = SORT_MODE.load(atomic::Ordering::SeqCst);
-                    SORT_MODE.store(s ^ 1, atomic::Ordering::SeqCst);
-                }
-                _ => {}
+            if ch as char == 's' {
+                let s = SORT_MODE.load(atomic::Ordering::SeqCst);
+                SORT_MODE.store(s ^ 1, atomic::Ordering::SeqCst);
             }
         });
         table.add_row(row![' ', ' ', ' ']);

@@ -863,7 +863,7 @@ async fn run_server(
         );
         let udp_sock = UdpSocket::bind(bind_udp).await?;
         tokio::spawn(async move {
-            let mut buf = vec![0u8; udp_frame_size as usize];
+            let mut buf = vec![0_u8; udp_frame_size as usize];
             loop {
                 match udp_sock.recv_from(&mut buf).await {
                     Ok((len, addr)) => {
@@ -1209,8 +1209,8 @@ fn main() {
         }
         if let Some(ref f) = config.auth.password_file {
             let mut passwords = PASSWORD_DB.write().await;
-            let pfile = format_path!(f.clone());
-            passwords.set_password_file(&pfile);
+            let password_file = format_path!(f.clone());
+            passwords.set_password_file(&password_file);
             reload_passwords!(passwords);
         }
         handle_term_signal!(SignalKind::interrupt(), false);

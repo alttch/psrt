@@ -20,17 +20,20 @@ impl Passwords {
     pub fn set_password_file(&mut self, path: &str) {
         self.password_file.replace(path.to_owned());
     }
+    /// # Errors
+    ///
+    /// Will return err if the file is unable to be read
     pub async fn reload(&mut self) -> Result<(), Error> {
         if let Some(path) = self.password_file.as_ref() {
             log::info!("Loading password file {}", path);
             let data = tokio::fs::read_to_string(path).await?;
             let mut map = BTreeMap::new();
             for line in data.trim().lines() {
-                let parts: Vec<&str> = line.trim().split(":").collect();
+                let parts: Vec<&str> = line.trim().split(':').collect();
                 if parts.len() != 2 {
                     continue;
                 }
-                if parts[0].starts_with("#") {
+                if parts[0].starts_with('#') {
                     continue;
                 }
                 map.insert(parts[0].trim().to_owned(), parts[1].trim().to_owned());
