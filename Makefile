@@ -1,4 +1,4 @@
-VERSION=0.1.8
+VERSION=$(shell grep ^version Cargo.toml|cut -d\" -f2)
 
 all: test
 
@@ -9,9 +9,6 @@ clean:
 tag:
 	git tag -a v${VERSION} -m v${VERSION}
 	git push origin --tags
-
-ver:
-	sed -i 's/^version = ".*/version = "${VERSION}"/g' Cargo.toml
 
 release: pub tag pkg debian-pkg pub-pkg
 
