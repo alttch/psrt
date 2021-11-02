@@ -60,13 +60,15 @@ macro_rules! err_comm {
 macro_rules! exec_command {
     ($channel: expr, $cmd: expr, $timeout: expr) => {{
         let (tx, rx) = oneshot::channel();
-        if $channel
-            .send(Command {
+        if time::timeout(
+            $timeout,
+            $channel.send(Command {
                 control_command: $cmd,
                 response_channel: Some(tx),
-            })
-            .await
-            .is_err()
+            }),
+        )
+        .await?
+        .is_err()
         {
             return err_comm!();
         }
@@ -211,6 +213,11 @@ impl Config {
         self.timeout = timeout;
         self
     }
+    /// Set queue size
+    ///
+    /// The default queue size is 8192 commands
+    ///
+    /// For true atomic operations set queue size to 1
     #[inline]
     pub fn set_queue_size(mut self, size: usize) -> Self {
         self.queue_size = size;
