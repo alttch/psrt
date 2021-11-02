@@ -390,7 +390,7 @@ async fn main() {
         tokio::spawn(async move {
             loop {
                 signal(SignalKind::interrupt()).unwrap().recv().await;
-                cls!();
+                print!("{}[2J", 27 as char);
                 client.bye().await.unwrap();
                 std::process::exit(0);
             }
