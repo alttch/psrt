@@ -163,6 +163,7 @@ where
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 // make fields permanent to let store config in wrappers and pools
 pub struct Config {
     path: String,
