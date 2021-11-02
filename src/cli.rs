@@ -390,8 +390,15 @@ async fn main() {
         tokio::spawn(async move {
             loop {
                 signal(SignalKind::interrupt()).unwrap().recv().await;
-                print!("{}[2J", 27 as char);
                 client.bye().await.unwrap();
+                print!("{}[2J", 27 as char);
+                if let Ok(term) = std::env::var("TERM") {
+                    if term.starts_with("screen") {
+                        for s in vec!["reset", "cnorm"] {
+                            let _r = std::process::Command::new("tput").arg(s).spawn();
+                        }
+                    }
+                }
                 std::process::exit(0);
             }
         });
