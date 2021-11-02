@@ -470,11 +470,11 @@ impl Client {
         let conn = connected.clone();
         // Spawn control task
         let path = config.path.clone();
+        let beacon_interval = Duration::from_millis(timeout_secs * 1000 / 2);
         let control_fut = tokio::spawn(async move {
-            let _r = Self::run_control_stream(control_stream, rx, &path).await;
+            let _r = Self::run_control_stream(control_stream, rx, &path, beacon_interval).await;
             conn.store(false, atomic::Ordering::SeqCst);
         });
-        let beacon_interval = Duration::from_millis(timeout_secs * 1000 / 2);
         let cc = control_channel.clone();
         let conn = connected.clone();
         // Spawn control channel pinger
@@ -608,12 +608,20 @@ impl Client {
         mut control_stream: SStream,
         mut rx: mpsc::Receiver<Command>,
         path: &str,
+        beacon_interval: Duration,
     ) -> Result<(), Error> {
         let mut response_buf: [u8; 1] = [0];
+        let mut last_command = Instant::now();
         while let Some(cmd) = rx.recv().await {
+            if cmd.control_command == ControlCommand::Nop
+                && last_command.elapsed() < beacon_interval
+            {
+                continue;
+            }
             control_stream
                 .write(&cmd.control_command.as_bytes())
                 .await?;
+            last_command = Instant::now();
             macro_rules! handle_err {
                 ($code: expr) => {
                     let err = if $code == RESPONSE_ERR_ACCESS {
