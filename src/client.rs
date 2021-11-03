@@ -231,7 +231,7 @@ impl Config {
     }
     /// Set CA
     ///
-    /// This is NOT a file path. CA certs should be pre-loaded in string
+    /// This is NOT a file path. CA certs MUST be pre-loaded in string
     #[inline]
     pub fn set_tls_ca(mut self, ca: Option<String>) -> Self {
         self.tls_ca = ca;
