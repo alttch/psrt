@@ -94,8 +94,11 @@ directory.
 
 ## Problems
 
-If any problems occur, try running **psrtd** with *-v* argument to get verbose
-logging in terminal.
+* If any problems occur, try running **psrtd** with *-v* argument to get
+  verbose logging in terminal.
+
+* The most common problem is timeout disconnect. The server timeout MUST be
+  higher than the slowest expected client timeout.
 
 ## Authentication
 
