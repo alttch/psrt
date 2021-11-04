@@ -17,6 +17,9 @@ case ${CMD} in
   top)
     cargo run --release --bin psrt-cli --features cli -- localhost:2873 -t '#' --top $*
     ;;
+  client)
+    cargo run --release --bin psrt-cli --features cli -- localhost:2873 $*
+    ;;
   *)
     echo "command unknown: ${CMD}"
     ;;
