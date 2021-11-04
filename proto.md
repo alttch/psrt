@@ -53,7 +53,7 @@ OP\_SUBCRIBE = 0x02
 
 Client: 
 
-0x02 LEN TOPIC (or multiple topics splitted by 0x00)
+0x02 LEN TOPIC (or multiple topics split with 0x00)
 
 Server:
 
@@ -65,7 +65,7 @@ OP\_UNSUBCRIBE = 0x02
 
 Client:
 
-0x03 LEN TOPIC (or multiple topics splitted by 0x00)
+0x03 LEN TOPIC (or multiple topics split with 0x00)
 
 Server:
 
