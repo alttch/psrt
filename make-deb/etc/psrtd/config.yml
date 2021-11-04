@@ -23,7 +23,7 @@ proto:
   #tls_key: certs/server.key
   # allow communcations without TLS
   allow_no_tls: true
-  timeout: 5
+  timeout: 10
 auth:
   allow_anonymous: true
   # use htpasswd -B to manage password file
