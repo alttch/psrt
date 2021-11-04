@@ -657,8 +657,12 @@ async fn launch_data_stream(
                             }
                         };
                     }
+                    let mut last_command = Instant::now();
                     while let Some(message) = rx.recv().await {
                         if message.frame[0] == OP_NOP {
+                            if last_command.elapsed() < beacon_interval {
+                                continue;
+                            }
                             eof_is_ok!(stream.write(&[OP_NOP]).await);
                         } else {
                             trace!("Sending message_frame to {}", token);
@@ -701,6 +705,7 @@ async fn launch_data_stream(
                                 }
                             }
                         }
+                        last_command = Instant::now();
                     }
                     Ok(())
                 });
