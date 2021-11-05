@@ -243,21 +243,21 @@ pub struct Message {
 }
 
 impl Message {
+    #[inline]
     pub fn topic(&self) -> &str {
         &self.topic
     }
-
+    #[inline]
     pub fn data(&self) -> &[u8] {
         &self.data
     }
-
     /// # Errors
     ///
     /// Will return Err if data is unable to be parsed as bytes
+    #[inline]
     pub fn data_as_str(&self) -> Result<&str, std::str::Utf8Error> {
         std::str::from_utf8(&self.data)
     }
-
     /// # Errors
     ///
     /// Will return Err on buffer parse errors
@@ -613,10 +613,10 @@ pub fn now_ns() -> u64 {
 pub mod acl;
 pub mod client;
 pub mod comm;
-#[cfg(feature = "cluster")]
-pub mod replication;
 #[cfg(feature = "server")]
 pub mod passwords;
+#[cfg(feature = "cluster")]
+pub mod replication;
 
 #[cfg(test)]
 mod test {
