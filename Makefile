@@ -1,6 +1,7 @@
 VERSION=$(shell grep ^version Cargo.toml|cut -d\" -f2)
 
-all: test
+all:
+	@echo "select target"
 
 clean:
 	rm -rf _build
