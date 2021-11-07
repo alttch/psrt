@@ -612,7 +612,7 @@ async fn launch_data_stream(
     let op_start = Instant::now();
     stream.read(&mut buf).await?;
     let token = Token::from(buf);
-    let (tx, mut rx) = mpsc::channel(psrt::get_data_queue_size());
+    let (tx, mut rx) = async_channel::bounded(psrt::get_data_queue_size());
     let mut buf: [u8; 1] = [0];
     stream
         .read_with_timeout(&mut buf, reduce_timeout(timeout, op_start))
@@ -658,7 +658,7 @@ async fn launch_data_stream(
                         };
                     }
                     let mut last_command = Instant::now();
-                    while let Some(message) = rx.recv().await {
+                    while let Ok(message) = rx.recv().await {
                         if message.frame[0] == OP_NOP {
                             if last_command.elapsed() < beacon_interval {
                                 continue;

@@ -53,7 +53,7 @@ struct BenchmarkWorker {
     id: String,
     client: client::Client,
     r_client: Option<client::Client>,
-    data_channel: Arc<RwLock<mpsc::Receiver<psrt::Message>>>,
+    data_channel: Arc<RwLock<async_channel::Receiver<psrt::Message>>>,
 }
 
 impl BenchmarkWorker {
@@ -61,7 +61,7 @@ impl BenchmarkWorker {
         id: String,
         client: client::Client,
         r_client: Option<client::Client>,
-        data_channel: mpsc::Receiver<psrt::Message>,
+        data_channel: async_channel::Receiver<psrt::Message>,
     ) -> Self {
         Self {
             id,
