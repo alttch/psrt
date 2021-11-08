@@ -4,7 +4,6 @@ extern crate lazy_static;
 use tokio::io::AsyncReadExt;
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
 use tokio::time;
 
@@ -612,7 +611,7 @@ async fn launch_data_stream(
     let op_start = Instant::now();
     stream.read(&mut buf).await?;
     let token = Token::from(buf);
-    let (tx, mut rx) = async_channel::bounded(psrt::get_data_queue_size());
+    let (tx, rx) = async_channel::bounded(psrt::get_data_queue_size());
     let mut buf: [u8; 1] = [0];
     stream
         .read_with_timeout(&mut buf, reduce_timeout(timeout, op_start))

@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::sync::{atomic, Arc};
 use std::time::{Duration, Instant};
 use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::RwLock;
 
 use psrt::client;
 use psrt::DEFAULT_PRIORITY;
@@ -108,7 +108,7 @@ async fn benchmark_message(
                 wrk.client.subscribe(test_topic.clone()).await.unwrap();
             }
             let data_fut = tokio::spawn(async move {
-                let mut channel = worker.data_channel.write().await;
+                let channel = worker.data_channel.write().await;
                 for _ in 0..iterations {
                     let msg = channel.recv().await.unwrap();
                     assert_eq!(msg.data(), *test_msg);
@@ -380,7 +380,7 @@ async fn main() {
             };
         }
         let mut client = client::Client::connect(&config).await.unwrap();
-        let mut data_channel = client.take_data_channel().unwrap();
+        let data_channel = client.take_data_channel().unwrap();
         let mut topic_stats: BTreeMap<String, TopicStat> = BTreeMap::new();
         client
             .subscribe_bulk(parse_topics(opts.topic.as_ref()))
@@ -479,7 +479,7 @@ async fn main() {
                     .unwrap();
             }
         } else {
-            let mut data_channel = client.take_data_channel().unwrap();
+            let data_channel = client.take_data_channel().unwrap();
             let topics = parse_topics(opts.topic.as_ref());
             info!("Listening to {}...", topics.join(", "));
             client.subscribe_bulk(topics).await.unwrap();
