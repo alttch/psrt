@@ -5,7 +5,6 @@
 // TODO web sockets
 // TODO admin area
 // TODO keep subscribed topics as chunks
-use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio_rustls::webpki;
@@ -280,7 +279,7 @@ impl Message {
 pub struct ServerClientData {
     login: String,
     token: Token,
-    pub data_channel: RwLock<Option<mpsc::Sender<Arc<MessageFrame>>>>,
+    pub data_channel: RwLock<Option<async_channel::Sender<Arc<MessageFrame>>>>,
     pub tasks: RwLock<Vec<JoinHandle<Result<(), Error>>>>,
 }
 
@@ -402,8 +401,8 @@ impl ServerClientDB {
     pub async fn register_data_channel(
         &mut self,
         token: &Token,
-        channel: mpsc::Sender<Arc<MessageFrame>>,
-    ) -> Result<(mpsc::Sender<Arc<MessageFrame>>, ServerClient), Error> {
+        channel: async_channel::Sender<Arc<MessageFrame>>,
+    ) -> Result<(async_channel::Sender<Arc<MessageFrame>>, ServerClient), Error> {
         if let Some(ref mut client) = self.clients_by_token.get_mut(token) {
             let mut dc = client.data_channel.write().await;
             if dc.is_some() {

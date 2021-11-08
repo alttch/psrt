@@ -36,6 +36,7 @@ nix = "0.22.1"
 webpki-roots = "0.22"
 tokio-rustls = "0.23.0"
 rustls-pemfile = "0.2.1"
+async-channel = "1.6.1"
 serde = { version =  "1.0", features = ["derive"] }
 serde_yaml = "0.8"
 clap = { version = "=3.0.0-beta.2", optional = true }

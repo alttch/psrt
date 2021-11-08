@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tokio::time;
 use tokio::time::sleep;
@@ -268,8 +268,8 @@ pub struct Client {
     control_fut: JoinHandle<()>,
     control_ping_fut: JoinHandle<()>,
     data_fut: Option<JoinHandle<()>>,
-    control_channel: mpsc::Sender<Command>,
-    data_channel: Option<mpsc::Receiver<Message>>,
+    control_channel: async_channel::Sender<Command>,
+    data_channel: Option<async_channel::Receiver<Message>>,
     connected: Arc<atomic::AtomicBool>,
     timeout: Duration,
 }
@@ -391,7 +391,7 @@ impl Client {
         {
             return Err(Error::access("Login failed"));
         }
-        let (control_channel, rx) = mpsc::channel::<Command>(config.queue_size);
+        let (control_channel, rx) = async_channel::bounded::<Command>(config.queue_size);
         let connected = Arc::new(atomic::AtomicBool::new(true));
         let mut timeout_secs = timeout.as_secs();
         if timeout_secs > 255 {
@@ -461,7 +461,7 @@ impl Client {
             if response_buf[0] != RESPONSE_OK {
                 return Err(Error::access("Data stream authentication failed"));
             }
-            let (tx, data_channel) = mpsc::channel::<Message>(config.queue_size);
+            let (tx, data_channel) = async_channel::bounded::<Message>(config.queue_size);
             let cc = control_channel.clone();
             let conn = connected.clone();
             // Spawn data task
@@ -520,7 +520,7 @@ impl Client {
     }
 
     #[inline]
-    pub fn take_data_channel(&mut self) -> Option<mpsc::Receiver<Message>> {
+    pub fn take_data_channel(&mut self) -> Option<async_channel::Receiver<Message>> {
         self.data_channel.take()
     }
 
@@ -614,13 +614,13 @@ impl Client {
 
     async fn run_control_stream(
         mut control_stream: SStream,
-        mut rx: mpsc::Receiver<Command>,
+        rx: async_channel::Receiver<Command>,
         path: &str,
         beacon_interval: Duration,
     ) -> Result<(), Error> {
         let mut response_buf: [u8; 1] = [0];
         let mut last_command = Instant::now();
-        while let Some(cmd) = rx.recv().await {
+        while let Ok(cmd) = rx.recv().await {
             if cmd.control_command == ControlCommand::Nop
                 && last_command.elapsed() < beacon_interval
             {
@@ -706,8 +706,8 @@ impl Client {
 
     async fn run_data_stream(
         mut data_stream: SStream,
-        tx: mpsc::Sender<Message>,
-        cc: mpsc::Sender<Command>,
+        tx: async_channel::Sender<Message>,
+        cc: async_channel::Sender<Command>,
     ) -> Result<(), Error> {
         let mut buf: [u8; 1] = [0];
         let timeout = data_stream.get_timeout();
