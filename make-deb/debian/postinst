@@ -1,6 +1,14 @@
 #!/bin/sh
 
 ( useradd -r psrt -s /usr/sbin/nologin -d / || exit 0 )
+for f in config.yml acl.yml; do
+  if [ ! -f /etc/psrtd/$f ]; then
+    cp -prvf /etc/psrtd/$f-dist /etc/psrtd/$f
+  fi
+done
+touch /etc/psrtd/psrt-passwd
+chmod 600 /etc/psrtd/psrt-passwd
+chown psrt /etc/psrtd/psrt-passwd
 systemctl enable psrtd
 cat << EOF
 Service psrtd enabled
