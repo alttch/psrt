@@ -69,11 +69,6 @@ Other repositories:
 Use binaries from <https://github.com/alttch/psrt/releases>. For Debian/Ubuntu
 and other deb-based distros, *.deb packages can be used.
 
-## Updates
-
-If updated from *.deb, backup */etc/psrtd* directory before updating, then
-manually restore configuration files if required.
-
 ## Build from source
 
 * Install [Rust](https://www.rust-lang.org/tools/install)
