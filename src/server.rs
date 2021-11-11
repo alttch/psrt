@@ -937,7 +937,10 @@ async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
     if u16::from_le_bytes([frame[2], frame[3]]) != psrt::PROTOCOL_VERSION {
         return Err((Error::invalid_data("unsupported protocol version"), false));
     }
-    let mut sp = frame[4..].splitn(4, |n| *n == 0);
+    if frame[4] != 0 {
+        return Err((Error::invalid_data("invalid packet format"), false));
+    }
+    let mut sp = frame[5..].splitn(4, |n| *n == 0);
     let login = std::str::from_utf8(
         sp.next()
             .ok_or_else(|| (Error::invalid_data("login missing"), false))?,

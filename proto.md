@@ -153,7 +153,7 @@ Not required. The client can close the data socket at any time.
 
 Client:
 
-EE AA 01 00 LOGIN 00 PASSWORD 00 OP PRIO(u8=7F) TOPIC 00 DATA
+EE AA 01 00 (VERSION) 00 (RESERVED) LOGIN 00 PASSWORD 00 OP PRIO(u8=7F) TOPIC 00 DATA
 
 Server (if ack required):
 
