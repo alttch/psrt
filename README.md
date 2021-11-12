@@ -136,7 +136,7 @@ message count and bytes.
 <img
 src="https://raw.githubusercontent.com/alttch/psrt/main/screenshots/cli_top.png" />
 
-## Cargo crate
+## Cargo crate (async client)
 
 <https://crates.io/crates/psrt>
 
