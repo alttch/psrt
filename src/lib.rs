@@ -1,6 +1,9 @@
 //! PubSubRT server, cli and client library
 //!
 //! <https://github.com/alttch/psrt>
+// TODO UDP encryptions aes-128-gcm & aes-256
+// TODO permanent subs and udp push
+// TODO data queue sizes in stats
 // TODO priorities
 // TODO web sockets
 // TODO admin area
