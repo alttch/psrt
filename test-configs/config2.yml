@@ -1,8 +1,8 @@
 server:
   # use workers < nCPUs
   workers: 4
-  # latency warning, μs, 50000 = 50ms
-  latency_warn: 50000
+  # latency warning, μs, 500000 = 500ms
+  latency_warn: 500000
   # data stream queue, per client
   data_queue: 1024
   max_topic_depth: 64
@@ -11,11 +11,11 @@ server:
   # max pub frame size (topic + data, bytes)
   max_pub_size: 1100000
   pid_file: /tmp/psrtd2.pid
-  bind_stats: 0.0.0.0:3884
+  bind_stats: 0.0.0.0:28880
   # remove for free version
   license: /opt/workstuff/psrt-license.key
 proto:
-  bind: 0.0.0.0:3883
+  bind: 0.0.0.0:22873
   tls_cert: certs/server.crt
   # only RSA private keys are supported
   tls_key: certs/server.key

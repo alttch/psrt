@@ -11,6 +11,9 @@ case ${CMD} in
   cserver)
     cargo run --release --bin psrtd --features server,cluster -- --config ./test-configs/config.yml $*
     ;;
+  cserver2)
+    cargo run --release --bin psrtd --features server,cluster -- --config ./test-configs/config2.yml $*
+    ;;
   benchmark)
     cargo run --release --bin psrt-cli --features cli -- localhost:2873 --benchmark $*
     ;;

@@ -1,4 +1,4 @@
-- path: localhost:3873
+- path: localhost:22873
   user: replicator
   password: xxx
   timeout: 5
