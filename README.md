@@ -87,6 +87,10 @@ If installed manually, get configuration files from
 If installed from deb-package, configuration files are stored in */etc/psrtd*
 directory.
 
+The official port numbers, registered for PSRT are 2873 TCP/UDP. It is
+recommended to keep these ports on servers to let clients connect / push data
+using defaults.
+
 ## Problems
 
 * If any problems occur, try running **psrtd** with *-v* argument to get
