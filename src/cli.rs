@@ -394,7 +394,7 @@ async fn main() {
                 print!("{}[2J", 27 as char);
                 if let Ok(term) = std::env::var("TERM") {
                     if term.starts_with("screen") {
-                        for s in vec!["reset", "cnorm"] {
+                        for s in &["reset", "cnorm"] {
                             let _r = std::process::Command::new("tput").arg(s).spawn();
                         }
                     }
