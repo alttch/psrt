@@ -34,7 +34,7 @@ pub const DATA_HEADER: [u8; 2] = [0xEE, 0xAB];
 
 pub const PROTOCOL_VERSION: u16 = 1;
 
-const CLIENT_NOT_REG_ERR: &str = "ServerClient not registered!";
+const CLIENT_NOT_REG_ERR: &str = "Client not registered";
 
 pub const OP_NOP: u8 = 0x00;
 pub const RESPONSE_OK: u8 = 0x01;
