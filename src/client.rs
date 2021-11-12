@@ -505,7 +505,8 @@ impl Client {
         let path = config.path.clone();
         let beacon_interval = Duration::from_millis(timeout_secs * 1000 / 2);
         let control_fut = tokio::spawn(async move {
-            let _r = Self::run_control_stream(control_stream, rx, &path, beacon_interval).await;
+            let _r =
+                Self::run_control_stream(control_stream, rx, &path, beacon_interval, timeout).await;
             conn.store(false, atomic::Ordering::SeqCst);
         });
         let cc = control_channel.clone();
@@ -642,19 +643,18 @@ impl Client {
         rx: async_channel::Receiver<Command>,
         path: &str,
         beacon_interval: Duration,
+        timeout: Duration,
     ) -> Result<(), Error> {
         let mut response_buf: [u8; 1] = [0];
-        let mut last_command = Instant::now();
+        let mut op_start = Instant::now();
         while let Ok(cmd) = rx.recv().await {
-            if cmd.control_command == ControlCommand::Nop
-                && last_command.elapsed() < beacon_interval
-            {
+            if cmd.control_command == ControlCommand::Nop && op_start.elapsed() < beacon_interval {
                 continue;
             }
+            op_start = Instant::now();
             control_stream
                 .write(&cmd.control_command.as_bytes())
                 .await?;
-            last_command = Instant::now();
             macro_rules! handle_err {
                 ($code: expr) => {
                     let err = if $code == RESPONSE_ERR_ACCESS {
@@ -672,7 +672,9 @@ impl Client {
             }
             macro_rules! process_reply {
                 () => {
-                    control_stream.read(&mut response_buf).await?;
+                    control_stream
+                        .read_with_timeout(&mut response_buf, reduce_timeout(timeout, op_start))
+                        .await?;
                     let code = response_buf[0];
                     if code == RESPONSE_OK {
                         if let Some(ch) = cmd.response_channel {
@@ -685,11 +687,15 @@ impl Client {
             }
             match cmd.control_command {
                 ControlCommand::Publish(_, _, ref message) => {
-                    control_stream.write(message).await?;
+                    control_stream
+                        .write_with_timeout(message, reduce_timeout(timeout, op_start))
+                        .await?;
                     process_reply!();
                 }
                 ControlCommand::PublishRepl(priority, ref topic, ref message, timestamp) => {
-                    control_stream.read(&mut response_buf).await?;
+                    control_stream
+                        .read_with_timeout(&mut response_buf, reduce_timeout(timeout, op_start))
+                        .await?;
                     let code = response_buf[0];
                     match code {
                         RESPONSE_OK_WAITING => {
@@ -698,9 +704,18 @@ impl Client {
                             msg_buf.extend(timestamp.to_le_bytes());
                             #[allow(clippy::cast_possible_truncation)]
                             msg_buf.extend((message.len() as u32).to_le_bytes());
-                            control_stream.write(&msg_buf).await?;
-                            control_stream.write(message).await?;
-                            control_stream.read(&mut response_buf).await?;
+                            control_stream
+                                .write_with_timeout(&msg_buf, reduce_timeout(timeout, op_start))
+                                .await?;
+                            control_stream
+                                .write_with_timeout(message, reduce_timeout(timeout, op_start))
+                                .await?;
+                            control_stream
+                                .read_with_timeout(
+                                    &mut response_buf,
+                                    reduce_timeout(timeout, op_start),
+                                )
+                                .await?;
                             let code = response_buf[0];
                             if code == RESPONSE_OK {
                                 if let Some(ch) = cmd.response_channel {
