@@ -57,6 +57,7 @@ pub const TOPIC_INVALID_SYMBOLS: &[char] = &['#', '+'];
 
 static LATENCY_WARN: atomic::AtomicU32 = atomic::AtomicU32::new(0);
 static DATA_QUEUE_SIZE: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
+static MAX_TOPIC_DEPTH: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 pub fn set_latency_warn(value: u32) {
     LATENCY_WARN.store(value, atomic::Ordering::SeqCst);
@@ -73,8 +74,6 @@ pub fn get_latency_warn() -> u32 {
 pub fn get_data_queue_size() -> usize {
     DATA_QUEUE_SIZE.load(atomic::Ordering::SeqCst)
 }
-
-static MAX_TOPIC_DEPTH: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 #[inline]
 pub fn reduce_timeout(timeout: Duration, op_start: Instant) -> Duration {
