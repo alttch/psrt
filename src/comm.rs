@@ -1,4 +1,4 @@
-//! Internal socket communcation wrapper
+//! Internal socket communication wrapper
 use crate::reduce_timeout;
 use crate::Error;
 use std::time::{Duration, Instant};
