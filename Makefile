@@ -11,7 +11,7 @@ tag:
 	git tag -a v${VERSION} -m v${VERSION}
 	git push origin --tags
 
-release: test pub tag pkg debian-pkg pub-pkg
+release: tests pub tag pkg debian-pkg pub-pkg
 
 tests: run-tests clippy
 
