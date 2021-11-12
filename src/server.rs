@@ -21,8 +21,8 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use psrt::pubsub::{ServerClient, ServerClientDB, ServerClientDBStats, Token};
 use psrt::reduce_timeout;
-use psrt::{ServerClient, ServerClientDB, ServerClientDBStats, Token};
 
 use psrt::RESPONSE_ERR;
 use psrt::RESPONSE_ERR_ACCESS;
@@ -44,9 +44,9 @@ use psrt::acl::Acl;
 use psrt::COMM_INSECURE;
 use psrt::COMM_TLS;
 
-use psrt::TOPIC_INVALID_SYMBOLS;
-
-use psrt::MessageFrame;
+use psrt::pubsub::now_ns;
+use psrt::pubsub::MessageFrame;
+use psrt::pubsub::TOPIC_INVALID_SYMBOLS;
 
 use chrono::prelude::*;
 use clap::Clap;
@@ -169,10 +169,10 @@ pub async fn get_status() -> ServerStatus {
     #[cfg(not(feature = "cluster"))]
     let cluster = None;
     ServerStatus {
-        time: psrt::now_ns() / 1000,
+        time: now_ns() / 1000,
         uptime: UPTIME.elapsed().as_secs(),
         version: psrt::VERSION.to_owned(),
-        data_queue_size: psrt::get_data_queue_size(),
+        data_queue_size: psrt::pubsub::get_data_queue_size(),
         host: HOST_NAME.read().await.clone(),
         counters,
         clients,
@@ -344,7 +344,7 @@ async fn process_control(
             OP_PUBLISH => {
                 trace!("client {}: OP_PUBLISH", client);
                 // use system time instead of monotonic to replicate it between nodes
-                let timestamp = psrt::now_ns();
+                let timestamp = now_ns();
                 let mut prio: [u8; 1] = [DEFAULT_PRIORITY];
                 stream
                     .read_with_timeout(&mut prio, reduce_timeout(timeout, op_start))
@@ -369,7 +369,7 @@ async fn process_control(
                     return Err(Error::invalid_data(ERR_INVALID_DATA_BLOCK));
                 }
                 // prepare topic before to send it formatted to all clients
-                if let Ok(topic) = psrt::prepare_topic(std::str::from_utf8(&buf)?) {
+                if let Ok(topic) = psrt::pubsub::prepare_topic(std::str::from_utf8(&buf)?) {
                     #[allow(clippy::redundant_slicing)]
                     if topic.contains(&TOPIC_INVALID_SYMBOLS[..]) {
                         return Err(Error::invalid_data(ERR_INVALID_DATA_BLOCK));
@@ -611,7 +611,7 @@ async fn launch_data_stream(
     let op_start = Instant::now();
     stream.read(&mut buf).await?;
     let token = Token::from(buf);
-    let (tx, rx) = async_channel::bounded(psrt::get_data_queue_size());
+    let (tx, rx) = async_channel::bounded(psrt::pubsub::get_data_queue_size());
     let mut buf: [u8; 1] = [0];
     stream
         .read_with_timeout(&mut buf, reduce_timeout(timeout, op_start))
@@ -676,7 +676,7 @@ async fn launch_data_stream(
                             }
                             if let Some(timestamp) = message.timestamp {
                                 #[allow(clippy::cast_possible_truncation)]
-                                let latency_mks = ((psrt::now_ns() - timestamp) / 1000) as u32;
+                                let latency_mks = ((now_ns() - timestamp) / 1000) as u32;
                                 {
                                     stats_counters!().count_sent_bytes(
                                         (message.frame.len()
@@ -686,7 +686,7 @@ async fn launch_data_stream(
                                     );
                                 };
                                 trace!("latency: {} \u{3bc}s", latency_mks);
-                                if latency_mks > psrt::get_latency_warn() {
+                                if latency_mks > psrt::pubsub::get_latency_warn() {
                                     warn!(
                                         "WARNING: high latency: {} \u{3bc}s topic {} ({}@{})",
                                         latency_mks,
@@ -927,7 +927,7 @@ async fn run_server(
 
 /// bool in replies = true if ack required
 async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
-    let timestamp = psrt::now_ns();
+    let timestamp = now_ns();
     if frame.len() < 5 {
         return Err((Error::invalid_data("packet too small"), false));
     }
@@ -987,7 +987,7 @@ async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
             need_ack,
         ));
     };
-    let topic = psrt::prepare_topic(topic).map_err(|e| (e, need_ack))?;
+    let topic = psrt::pubsub::prepare_topic(topic).map_err(|e| (e, need_ack))?;
     #[allow(clippy::redundant_slicing)]
     if topic.contains(&TOPIC_INVALID_SYMBOLS[..]) {
         return Err((Error::invalid_data(ERR_INVALID_DATA_BLOCK), need_ack));
@@ -1185,12 +1185,12 @@ fn main() {
         info!("reading license file {}", fname);
         std::fs::read_to_string(fname).unwrap()
     });
-    psrt::set_latency_warn(config.server.latency_warn);
-    psrt::set_data_queue_size(config.server.data_queue);
+    psrt::pubsub::set_latency_warn(config.server.latency_warn);
+    psrt::pubsub::set_data_queue_size(config.server.data_queue);
     ALLOW_ANONYMOUS.store(config.auth.allow_anonymous, atomic::Ordering::SeqCst);
     MAX_TOPIC_LENGTH.store(config.server.max_topic_length, atomic::Ordering::SeqCst);
     MAX_PUB_SIZE.store(config.server.max_pub_size, atomic::Ordering::SeqCst);
-    psrt::set_max_topic_depth(config.server.max_topic_depth);
+    psrt::pubsub::set_max_topic_depth(config.server.max_topic_depth);
     if opts.daemonize {
         if let Ok(fork::Fork::Child) = fork::daemon(true, false) {
             std::process::exit(0);

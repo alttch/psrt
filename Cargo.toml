@@ -8,6 +8,11 @@ repository = "https://github.com/alttch/psrt"
 description = "Industrial Pub-Sub server with minimal latency and MQTT-compatible logic"
 readme = "README.md"
 keywords = ["pubsub", "server", "client"]
+autoexamples = false
+
+[[example]]
+name = "pubsub"
+path = "examples/pubsub.rs"
 
 [lib]
 name = "psrt"

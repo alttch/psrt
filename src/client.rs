@@ -1,3 +1,4 @@
+//! PSRT client module
 use crate::reduce_timeout;
 use crate::{Error, ErrorKind};
 use std::sync::atomic;
@@ -164,8 +165,25 @@ where
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
-// make fields permanent to let store config in wrappers and pools
+/// Client configuration
+///
+/// "set_" and "disable_" functions have to be run in chain
+///
+/// "update_" functions alter the existing configuration
+///
+/// ```rust
+/// use psrt::client::Config;
+/// use std::time::Duration;
+///
+/// let config = Config::new("localhost:2873").
+///     set_auth("test", "123").
+///     set_timeout(Duration::from_secs(5)).
+///     build();
+///
+/// assert_eq!(config.path(), "localhost:2873");
+/// ```
 pub struct Config {
+    // make fields permanent to let store config in wrappers and pools
     path: String,
     #[serde(default)]
     user: String,
@@ -204,6 +222,7 @@ impl Config {
         self.password = password.to_owned();
         self
     }
+    /// Do not connect the data socket
     #[inline]
     pub fn disable_data_stream(mut self) -> Self {
         self.need_data_stream = false;
@@ -241,29 +260,35 @@ impl Config {
     pub fn build(self) -> Self {
         self
     }
+    /// Get path
     #[inline]
     pub fn path(&self) -> &str {
         &self.path
     }
+    /// Get timeout
     #[inline]
     pub fn timeout(&self) -> Duration {
         self.timeout
     }
+    /// Get TLS CA
     #[inline]
     pub fn tls_ca(&self) -> Option<&String> {
         self.tls_ca.as_ref()
     }
+    /// Update TLS CA
     /// This is NOT a file path. CA certs should be pre-loaded in string
     #[inline]
     pub fn update_tls_ca(&mut self, value: String) {
         self.tls_ca = Some(value);
     }
+    /// Update path
     #[inline]
     pub fn update_path(&mut self, path: &str) {
         self.path = path.to_owned();
     }
 }
 
+/// PSRT Client
 pub struct Client {
     control_fut: JoinHandle<()>,
     control_ping_fut: JoinHandle<()>,

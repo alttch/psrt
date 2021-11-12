@@ -11,7 +11,15 @@ tag:
 	git tag -a v${VERSION} -m v${VERSION}
 	git push origin --tags
 
-release: pub tag pkg debian-pkg pub-pkg
+release: test pub tag pkg debian-pkg pub-pkg
+
+tests: run-tests clippy
+
+run-tests:
+	cargo test --features server
+
+clippy:
+	clippy --features server,cli,cluster
 
 pub: publish-cargo-crate
 
