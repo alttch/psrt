@@ -25,8 +25,6 @@ cp -vf ${PSRT}/psrtd.service ./${TARGET}/lib/systemd/system/
 cp -rvf ./etc ./${TARGET}/
 strip ./${TARGET}/usr/bin/psrt-cli
 strip ./${TARGET}/usr/sbin/psrtd
-# TODO configs
-# TODO systemd service
 (
 cat << EOF
 Package: ${PACKAGE}
