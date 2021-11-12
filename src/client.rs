@@ -277,7 +277,7 @@ pub struct Client {
 impl Client {
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     #[allow(clippy::too_many_lines)]
     pub async fn connect(config: &Config) -> Result<Self, Error> {
         trace!("config: {:?}", config);
@@ -526,7 +526,7 @@ impl Client {
 
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     pub async fn subscribe(&self, topic: String) -> Result<(), Error> {
         exec_command!(
             self.control_channel,
@@ -537,7 +537,7 @@ impl Client {
 
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     pub async fn unsubscribe(&self, topic: String) -> Result<(), Error> {
         exec_command!(
             self.control_channel,
@@ -547,7 +547,7 @@ impl Client {
     }
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     pub async fn subscribe_bulk(&self, topics: Vec<String>) -> Result<(), Error> {
         exec_command!(
             self.control_channel,
@@ -558,7 +558,7 @@ impl Client {
 
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     pub async fn unsubscribe_bulk(&self, topics: Vec<String>) -> Result<(), Error> {
         exec_command!(
             self.control_channel,
@@ -571,7 +571,7 @@ impl Client {
     ///
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     pub async fn publish(
         &self,
         priority: u8,
@@ -587,7 +587,7 @@ impl Client {
 
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     pub async fn publish_repl(
         &self,
         priority: u8,
@@ -604,7 +604,7 @@ impl Client {
 
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     pub async fn bye(&self) -> Result<(), Error> {
         exec_command!(self.control_channel, ControlCommand::Bye, self.timeout)?;
         self.connected.store(false, atomic::Ordering::SeqCst);

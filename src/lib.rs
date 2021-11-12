@@ -378,7 +378,7 @@ impl Default for ServerClientDB {
 
 /// # Errors
 ///
-/// With return Err if the topic is invalid
+/// Will return Err if the topic is invalid
 pub fn prepare_topic(topic: &str) -> Result<String, Error> {
     let mut result = topic.to_owned();
     while result.contains("//") {
@@ -453,7 +453,7 @@ impl ServerClientDB {
     }
     /// # Errors
     ///
-    /// With return Err if the topic is invalid
+    /// Will return Err if the topic is invalid
     pub fn subscribe(&mut self, topic: &str, client: ServerClient) -> Result<(), Error> {
         trace!("subscribing {} to {}", client, topic);
         let client_topics = self
@@ -471,7 +471,7 @@ impl ServerClientDB {
     }
     /// # Errors
     ///
-    /// With return Err if the topic is invalid
+    /// Will return Err if the topic is invalid
     pub fn unsubscribe(&mut self, topic: &str, client: ServerClient) -> Result<(), Error> {
         trace!("subscribing {} from {}", client, topic);
         let client_topics = self

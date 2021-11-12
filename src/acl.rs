@@ -174,7 +174,7 @@ impl PathMaskList {
     }
     /// # Errors
     ///
-    /// With return Err if any mask is unable to be parsed
+    /// Will return Err if any mask is unable to be parsed
     pub fn from_str_list(s_masks: &[&str]) -> Result<Self, Error> {
         let mut path_masks = HashSet::new();
         for s in s_masks {
@@ -185,7 +185,7 @@ impl PathMaskList {
 
     /// # Errors
     ///
-    /// With return Err if any mask is unable to be parsed
+    /// Will return Err if any mask is unable to be parsed
     pub fn from_string_vec(s_masks: &[String]) -> Result<Self, Error> {
         let mut path_masks = HashSet::new();
         for s in s_masks {

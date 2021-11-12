@@ -38,14 +38,14 @@ impl SStream {
     }
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     #[inline]
     pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
         self.write_with_timeout(buf, self.timeout).await
     }
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     #[inline]
     pub async fn write_with_timeout(&mut self, buf: &[u8], timeout: Duration) -> Result<(), Error> {
         match self.stream {
@@ -63,14 +63,14 @@ impl SStream {
     }
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     #[inline]
     pub async fn read(&mut self, buf: &mut [u8]) -> Result<(), Error> {
         self.read_with_timeout(buf, self.timeout).await
     }
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     #[inline]
     pub async fn read_with_timeout(
         &mut self,
@@ -92,14 +92,14 @@ impl SStream {
     }
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     #[inline]
     pub async fn read_frame(&mut self, max_length: Option<usize>) -> Result<Vec<u8>, Error> {
         self.read_frame_with_timeout(max_length, self.timeout).await
     }
     /// # Errors
     ///
-    /// With return Err on communcation errors
+    /// Will return Err on communcation errors
     pub async fn read_frame_with_timeout(
         &mut self,
         max_length: Option<usize>,
