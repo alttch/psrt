@@ -87,7 +87,7 @@ If installed manually, get configuration files from
 If installed from deb-package, configuration files are stored in */etc/psrtd*
 directory.
 
-The official port numbers, registered for PSRT are 2873 TCP/UDP. It is
+The official port numbers, assigned by IANA for PSRT are 2873 TCP/UDP. It is
 recommended to keep these ports on servers to let clients connect / push data
 using defaults.
 
