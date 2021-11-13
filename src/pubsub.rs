@@ -32,16 +32,18 @@ pub fn set_data_queue_size(value: usize) {
     DATA_QUEUE_SIZE.store(value, atomic::Ordering::SeqCst);
 }
 
+pub fn set_max_topic_depth(depth: usize) {
+    MAX_TOPIC_DEPTH.store(depth, atomic::Ordering::SeqCst);
+}
+
+#[inline]
 pub fn get_latency_warn() -> u32 {
     LATENCY_WARN.load(atomic::Ordering::SeqCst)
 }
 
+#[inline]
 pub fn get_data_queue_size() -> usize {
     DATA_QUEUE_SIZE.load(atomic::Ordering::SeqCst)
-}
-
-pub fn set_max_topic_depth(depth: usize) {
-    MAX_TOPIC_DEPTH.store(depth, atomic::Ordering::SeqCst);
 }
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
