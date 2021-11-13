@@ -9,6 +9,7 @@
 //! ```
 //!
 //! Python client (sync): <https://github.com/alttch/psrt-py>
+// TODO try stats counters as atomics
 // TODO UDP encryptions aes-128-gcm & aes-256
 // TODO permanent subs and udp push
 // TODO data queue sizes in stats
