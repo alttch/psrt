@@ -1028,7 +1028,7 @@ async fn terminate(allow_log: bool) {
 macro_rules! handle_term_signal {
     ($kind: expr, $allow_log: expr) => {
         tokio::spawn(async move {
-            trace!("starging handler for {:?}", $kind);
+            trace!("starting handler for {:?}", $kind);
             loop {
                 match signal($kind) {
                     Ok(mut v) => {
@@ -1224,7 +1224,7 @@ fn main() {
         handle_term_signal!(SignalKind::terminate(), true);
         tokio::spawn(async move {
             let kind = SignalKind::hangup();
-            trace!("starging handler for {:?}", kind);
+            trace!("starting handler for {:?}", kind);
             loop {
                 match signal(kind) {
                     Ok(mut v) => {
