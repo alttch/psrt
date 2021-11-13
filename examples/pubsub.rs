@@ -27,7 +27,7 @@ async fn main() {
         }
     });
     for _ in 0..3 {
-        // if required, check that client is still connected
+        // if required, check that the client is still connected
         assert!(client.is_connected());
         // publish a message
         client
