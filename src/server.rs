@@ -613,6 +613,7 @@ async fn launch_data_stream(
     let token = Token::from(buf);
     let (tx, rx) = async_channel::bounded(psrt::pubsub::get_data_queue_size());
     let mut buf: [u8; 1] = [0];
+    let latency_warn = psrt::pubsub::get_latency_warn();
     stream
         .read_with_timeout(&mut buf, reduce_timeout(timeout, op_start))
         .await?;
@@ -686,7 +687,7 @@ async fn launch_data_stream(
                                     );
                                 };
                                 trace!("latency: {} \u{3bc}s", latency_mks);
-                                if latency_mks > psrt::pubsub::get_latency_warn() {
+                                if latency_mks > latency_warn {
                                     warn!(
                                         "WARNING: high latency: {} \u{3bc}s topic {} ({}@{})",
                                         latency_mks,
