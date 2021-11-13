@@ -76,7 +76,7 @@ impl Message {
     }
     /// # Errors
     ///
-    /// Will return Err if data is unable to be parsed as bytes
+    /// Will return Err if data is unable to be parsed as utf8
     #[inline]
     pub fn data_as_str(&self) -> Result<&str, std::str::Utf8Error> {
         std::str::from_utf8(&self.data)
