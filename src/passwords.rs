@@ -1,3 +1,4 @@
+use log::trace;
 use std::collections::BTreeMap;
 
 use crate::Error;
@@ -25,7 +26,7 @@ impl Passwords {
     /// Will return err if the file is unable to be read
     pub async fn reload(&mut self) -> Result<(), Error> {
         if let Some(path) = self.password_file.as_ref() {
-            log::info!("Loading password file {}", path);
+            log::info!("loading password file {}", path);
             let data = tokio::fs::read_to_string(path).await?;
             let mut map = BTreeMap::new();
             for line in data.trim().lines() {
@@ -36,7 +37,9 @@ impl Passwords {
                 if parts[0].starts_with('#') {
                     continue;
                 }
-                map.insert(parts[0].trim().to_owned(), parts[1].trim().to_owned());
+                let login = parts[0].trim().to_owned();
+                trace!("loaded password for \"{}\"", login);
+                map.insert(login, parts[1].trim().to_owned());
             }
             self.passwords.replace(map);
         }
