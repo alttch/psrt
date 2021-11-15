@@ -151,6 +151,12 @@ Download packages from <https://get.eva-ics.com/psrt-enterprise/>
 [Cluster setup
 instructions](https://github.com/alttch/psrt/blob/main/cluster.md)
 
+The Enterprise version can be tested in "unlimited trial" mode. Feel free to
+download testing [key
+files](https://github.com/alttch/psrt/tree/main/enterprise-keys). Each key file
+is bound to the specific host name, so the system host names in "unlimited
+trial" PSRT Enterprise clusters must be "node1", "node2" and "node3".
+
 ## About the authors
 
 [Bohemia Automation](https://www.bohemia-automation.com) /
