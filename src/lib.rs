@@ -229,6 +229,8 @@ impl fmt::Display for Error {
 
 #[cfg(feature = "server")]
 pub mod acl;
+#[cfg(any(feature = "server", feature="cli"))]
+pub mod token;
 pub mod client;
 pub mod comm;
 #[cfg(feature = "server")]

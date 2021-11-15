@@ -21,7 +21,8 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use psrt::pubsub::{ServerClient, ServerClientDB, ServerClientDBStats, Token};
+use psrt::pubsub::{ServerClient, ServerClientDB, ServerClientDBStats};
+use psrt::token::Token;
 use psrt::reduce_timeout;
 
 use psrt::RESPONSE_ERR;
@@ -40,7 +41,7 @@ use psrt::OP_UNSUBSCRIBE;
 
 use psrt::{CONTROL_HEADER, DATA_HEADER};
 
-use psrt::acl::Acl;
+use psrt::acl::{Acl, AclDb};
 use psrt::COMM_INSECURE;
 use psrt::COMM_TLS;
 
@@ -184,41 +185,6 @@ pub async fn get_status() -> ServerStatus {
 enum StreamType {
     Control,
     Data,
-}
-
-#[derive(Debug)]
-struct AclDb {
-    acls: BTreeMap<String, Arc<Acl>>,
-    path: String,
-}
-
-impl AclDb {
-    fn new() -> Self {
-        Self {
-            acls: <_>::default(),
-            path: String::new(),
-        }
-    }
-    #[inline]
-    fn get_acl(&self, user: &str) -> Option<Arc<Acl>> {
-        self.acls.get(user).cloned()
-    }
-    #[inline]
-    fn set_path(&mut self, path: &str) {
-        self.path = path.to_owned();
-    }
-    async fn reload(&mut self) -> Result<(), Error> {
-        info!("loading ACL {}", self.path);
-        let acls: BTreeMap<String, Acl> =
-            serde_yaml::from_str(&tokio::fs::read_to_string(&self.path).await?)?;
-        self.acls.clear();
-        // TODO optimize when pop available
-        for (user, acl) in acls {
-            self.acls.insert(user, Arc::new(acl));
-        }
-        trace!("{:?}", self.acls);
-        Ok(())
-    }
 }
 
 #[allow(clippy::cast_possible_truncation)]

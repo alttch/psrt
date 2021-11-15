@@ -2,7 +2,6 @@ use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::TryInto;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::Split;
@@ -12,9 +11,9 @@ use std::sync::Arc;
 use serde::Serialize;
 
 use log::trace;
-use rand::Rng;
 
 use crate::Error;
+use crate::token::Token;
 
 const CLIENT_NOT_REG_ERR: &str = "Client not registered";
 
@@ -46,15 +45,6 @@ pub fn get_data_queue_size() -> usize {
     DATA_QUEUE_SIZE.load(atomic::Ordering::SeqCst)
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone)]
-pub struct Token([u8; 32]);
-
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
-    }
-}
-
 pub struct MessageFrame {
     pub timestamp: Option<u64>,     // used for analytics only
     pub frame: Vec<u8>,             // packed RESPONSE_OK, priority and len
@@ -72,7 +62,7 @@ pub struct ServerClientData {
 impl ServerClientData {
     #[inline]
     pub fn token_as_bytes(&self) -> &[u8] {
-        &self.token.0
+        &self.token.as_bytes()
     }
     #[inline]
     pub fn login(&self) -> &str {
@@ -357,32 +347,6 @@ fn get_subscribers_rec(
         }
     } else {
         result.extend(subscription.subscribers.clone());
-    }
-}
-
-impl Token {
-    /// # Panics
-    ///
-    /// Should not panic
-    pub fn new() -> Self {
-        Self(
-            rand::thread_rng()
-                .sample_iter(&rand::distributions::Uniform::new(0, 0xff))
-                .take(32)
-                .map(u8::from)
-                .collect::<Vec<u8>>()
-                .try_into()
-                .unwrap(),
-        )
-    }
-    pub fn from(buf: [u8; 32]) -> Self {
-        Self(buf)
-    }
-}
-
-impl Default for Token {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

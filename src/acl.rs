@@ -2,12 +2,49 @@
 use crate::Error;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
-use std::collections::HashSet;
+use std::collections::{HashSet, BTreeMap};
+use std::sync::Arc;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
+use log::{trace, info};
 
 const ERR_PATH_MASK_EMPTY: &str = "Empty path mask";
+
+#[derive(Debug)]
+pub struct AclDb {
+    acls: BTreeMap<String, Arc<Acl>>,
+    path: String,
+}
+
+impl AclDb {
+    pub fn new() -> Self {
+        Self {
+            acls: <_>::default(),
+            path: String::new(),
+        }
+    }
+    #[inline]
+    pub fn get_acl(&self, user: &str) -> Option<Arc<Acl>> {
+        self.acls.get(user).cloned()
+    }
+    #[inline]
+    pub fn set_path(&mut self, path: &str) {
+        self.path = path.to_owned();
+    }
+    pub async fn reload(&mut self) -> Result<(), Error> {
+        info!("loading ACL {}", self.path);
+        let acls: BTreeMap<String, Acl> =
+            serde_yaml::from_str(&tokio::fs::read_to_string(&self.path).await?)?;
+        self.acls.clear();
+        // TODO optimize when pop available
+        for (user, acl) in acls {
+            self.acls.insert(user, Arc::new(acl));
+        }
+        trace!("{:?}", self.acls);
+        Ok(())
+    }
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
