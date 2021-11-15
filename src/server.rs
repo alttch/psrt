@@ -13,6 +13,7 @@ use tokio_rustls::TlsAcceptor;
 
 use psrt::comm::SStream;
 
+#[cfg(feature = "cluster")]
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::net::SocketAddr;
