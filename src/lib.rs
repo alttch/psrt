@@ -48,6 +48,11 @@ pub const OP_BYE: u8 = 0xFF;
 pub const COMM_INSECURE: u8 = 0x00;
 pub const COMM_TLS: u8 = 0x01;
 
+pub const AUTH_LOGIN_PASS: u8 = 0x00;
+pub const AUTH_KEY_PLAIN: u8 = 0x01;
+pub const AUTH_KEY_AES128_: u8 = 0x02;
+pub const AUTH_KEY_AES256: u8 = 0x03;
+
 #[inline]
 pub fn reduce_timeout(timeout: Duration, op_start: Instant) -> Duration {
     let spent = op_start.elapsed();
