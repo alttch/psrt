@@ -36,7 +36,7 @@ use log::trace;
 
 use serde::{Deserialize, Deserializer};
 
-const ERR_COMMUNCATION_LOST: &str = "Communication lost";
+static ERR_COMMUNCATION_LOST: &str = "Communication lost";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 const DEFAULT_QUEUE_SIZE: usize = 8192;
 

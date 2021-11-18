@@ -22,7 +22,7 @@ use std::fmt;
 use std::time::{Duration, Instant};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const AUTHOR: &str = "(c) 2021 Bohemia Automation / Altertech";
+pub static AUTHOR: &str = "(c) 2021 Bohemia Automation / Altertech";
 
 pub const DEFAULT_PRIORITY: u8 = 0x7F;
 

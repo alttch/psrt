@@ -12,10 +12,10 @@ use serde::Serialize;
 
 use log::trace;
 
-use crate::Error;
 use crate::token::Token;
+use crate::Error;
 
-const CLIENT_NOT_REG_ERR: &str = "Client not registered";
+static CLIENT_NOT_REG_ERR: &str = "Client not registered";
 
 pub const TOPIC_INVALID_SYMBOLS: &[char] = &['#', '+'];
 
@@ -62,7 +62,7 @@ pub struct ServerClientData {
 impl ServerClientData {
     #[inline]
     pub fn token_as_bytes(&self) -> &[u8] {
-        &self.token.as_bytes()
+        self.token.as_bytes()
     }
     #[inline]
     pub fn login(&self) -> &str {

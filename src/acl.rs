@@ -1,29 +1,32 @@
 // TODO migrate to eva-common when released
 use crate::Error;
+use log::{info, trace};
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
-use std::collections::{HashSet, BTreeMap};
-use std::sync::Arc;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use log::{trace, info};
+use std::sync::Arc;
 
-const ERR_PATH_MASK_EMPTY: &str = "Empty path mask";
+static ERR_PATH_MASK_EMPTY: &str = "Empty path mask";
 
 #[derive(Debug)]
-pub struct AclDb {
+pub struct Db {
     acls: BTreeMap<String, Arc<Acl>>,
     path: String,
 }
 
-impl AclDb {
-    pub fn new() -> Self {
+impl Default for Db {
+    fn default() -> Self {
         Self {
             acls: <_>::default(),
             path: String::new(),
         }
     }
+}
+
+impl Db {
     #[inline]
     pub fn get_acl(&self, user: &str) -> Option<Arc<Acl>> {
         self.acls.get(user).cloned()
@@ -32,6 +35,9 @@ impl AclDb {
     pub fn set_path(&mut self, path: &str) {
         self.path = path.to_owned();
     }
+    /// # Errors
+    ///
+    /// Will return err on file read / deserialize error
     pub async fn reload(&mut self) -> Result<(), Error> {
         info!("loading ACL {}", self.path);
         let acls: BTreeMap<String, Acl> =

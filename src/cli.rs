@@ -16,7 +16,7 @@ use tokio::sync::RwLock;
 use psrt::client;
 use psrt::DEFAULT_PRIORITY;
 
-const ERR_TOPIC_NOT_SPECIFIED: &str = "Topic not specified";
+static ERR_TOPIC_NOT_SPECIFIED: &str = "Topic not specified";
 
 #[derive(Clap)]
 #[clap(version = psrt::VERSION, author = psrt::AUTHOR)]

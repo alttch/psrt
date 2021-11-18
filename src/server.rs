@@ -23,8 +23,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use psrt::pubsub::{ServerClient, ServerClientDB, ServerClientDBStats};
-use psrt::token::Token;
 use psrt::reduce_timeout;
+use psrt::token::Token;
 
 use psrt::RESPONSE_ERR;
 use psrt::RESPONSE_ERR_ACCESS;
@@ -42,7 +42,7 @@ use psrt::OP_UNSUBSCRIBE;
 
 use psrt::{CONTROL_HEADER, DATA_HEADER};
 
-use psrt::acl::{Acl, AclDb};
+use psrt::acl;
 use psrt::COMM_INSECURE;
 use psrt::COMM_TLS;
 
@@ -57,7 +57,7 @@ use log::{error, info, trace, warn};
 use log::{Level, LevelFilter};
 use serde::{Deserialize, Serialize};
 
-const ERR_INVALID_DATA_BLOCK: &str = "Invalid data block";
+static ERR_INVALID_DATA_BLOCK: &str = "Invalid data block";
 const MAX_AUTH_FRAME_SIZE: usize = 1024;
 const DEFAULT_UDP_FRAME_SIZE: u16 = 4096;
 
@@ -65,12 +65,12 @@ static ALLOW_ANONYMOUS: atomic::AtomicBool = atomic::AtomicBool::new(false);
 static MAX_PUB_SIZE: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 static MAX_TOPIC_LENGTH: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
-const CONFIG_FILES: &[&str] = &["/etc/psrtd/config.yml", "/usr/local/etc/psrtd/config.yml"];
+static CONFIG_FILES: &[&str] = &["/etc/psrtd/config.yml", "/usr/local/etc/psrtd/config.yml"];
 
 #[cfg(feature = "cluster")]
-const APP_NAME: &str = "PSRT Enterprise";
+static APP_NAME: &str = "PSRT Enterprise";
 #[cfg(not(feature = "cluster"))]
-const APP_NAME: &str = "PSRT";
+static APP_NAME: &str = "PSRT";
 
 use stats::Counters;
 
@@ -120,7 +120,7 @@ lazy_static! {
     static ref STATS_COUNTERS: RwLock<Counters> = RwLock::new(Counters::new());
     static ref PID_FILE: Mutex<Option<String>> = Mutex::new(None);
     static ref HOST_NAME: RwLock<String> = RwLock::new("unknown".to_owned());
-    static ref ACL_DB: RwLock<AclDb> = RwLock::new(AclDb::new());
+    static ref ACL_DB: RwLock<acl::Db> = RwLock::new(<_>::default());
     static ref UPTIME: Instant = Instant::now();
 }
 
@@ -222,7 +222,7 @@ async fn process_control(
     mut stream: SStream,
     client: ServerClient,
     addr: SocketAddr,
-    acl: Arc<Acl>,
+    acl: Arc<acl::Acl>,
     timeout: Duration,
 ) -> Result<(), Error> {
     loop {
@@ -502,7 +502,7 @@ pub async fn authenticate(login: &str, password: &str) -> bool {
 }
 
 #[inline]
-pub async fn get_acl(login: &str) -> Option<Arc<Acl>> {
+pub async fn get_acl(login: &str) -> Option<Arc<acl::Acl>> {
     acl_db!().get_acl(if login.is_empty() { "_" } else { login })
 }
 
