@@ -39,7 +39,7 @@ having list of neighbors configured in the cluster configuration YAML file.
   #tls_ca: /path/to/certs/ca.crt
 ```
 
-* Neighbor nodes must have replication user set up. The account should have
+* Neighbor nodes must have replication user set up. The account must have
   "replicator: true" option in its ACL to enable replication operations. No
   additional ACL options are required: it is allowed to replicator users to
   replicate all topics.
