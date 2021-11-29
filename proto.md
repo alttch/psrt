@@ -61,7 +61,7 @@ OK/ERROR
 
 ### Unsubscribe
 
-OP\_UNSUBCRIBE = 0x02
+OP\_UNSUBCRIBE = 0x03
 
 Client:
 
