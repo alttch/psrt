@@ -16,4 +16,4 @@ Service psrtd enabled
 To start the server, execute
 
   systemctl start psrtd
-
+EOF
