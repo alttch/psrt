@@ -1,5 +1,7 @@
-use std::fmt;
+use crate::Error;
 use rand::Rng;
+use std::fmt;
+use std::str::FromStr;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct Token([u8; 32]);
@@ -25,6 +27,7 @@ impl Token {
                 .unwrap(),
         )
     }
+    #[inline]
     pub fn from(buf: [u8; 32]) -> Self {
         Self(buf)
     }
@@ -37,5 +40,13 @@ impl Token {
 impl Default for Token {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl FromStr for Token {
+    type Err = Error;
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(hex::decode(s)?.as_slice().try_into()?))
     }
 }

@@ -174,6 +174,18 @@ impl From<webpki::Error> for Error {
     }
 }
 
+impl From<std::array::TryFromSliceError> for Error {
+    fn from(e: std::array::TryFromSliceError) -> Error {
+        Error::invalid_data(e)
+    }
+}
+
+impl From<hex::FromHexError> for Error {
+    fn from(e: hex::FromHexError) -> Error {
+        Error::invalid_data(e)
+    }
+}
+
 impl Error {
     pub fn access(message: impl fmt::Display) -> Self {
         Self {
