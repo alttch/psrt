@@ -29,6 +29,7 @@ proto:
 auth:
   allow_anonymous: true
   password_file: psrt-passwd
+  key_file: keys.yml
   acl: acl.yml
 cluster:
   config: cluster.yml
