@@ -42,7 +42,7 @@ use psrt::OP_UNSUBSCRIBE;
 
 use psrt::{CONTROL_HEADER, DATA_HEADER};
 
-use psrt::acl;
+use psrt::acl::{self, ACL_DB};
 use psrt::COMM_INSECURE;
 use psrt::COMM_TLS;
 
@@ -117,10 +117,10 @@ macro_rules! format_login {
 lazy_static! {
     static ref DB: RwLock<ServerClientDB> = RwLock::new(<_>::default());
     static ref PASSWORD_DB: RwLock<psrt::passwords::Passwords> = RwLock::new(<_>::default());
+    static ref KEY_DB: RwLock<psrt::keys::Keys> = RwLock::new(<_>::default());
     static ref STATS_COUNTERS: RwLock<Counters> = RwLock::new(Counters::new());
     static ref PID_FILE: Mutex<Option<String>> = Mutex::new(None);
     static ref HOST_NAME: RwLock<String> = RwLock::new("unknown".to_owned());
-    static ref ACL_DB: RwLock<acl::Db> = RwLock::new(<_>::default());
     static ref UPTIME: Instant = Instant::now();
 }
 
@@ -698,6 +698,8 @@ struct ConfigCluster {
 struct ConfigAuth {
     allow_anonymous: bool,
     password_file: Option<String>,
+    key_file: Option<String>,
+    aes_nonce: Option<String>,
     acl: String,
 }
 
@@ -895,6 +897,71 @@ async fn run_server(
 
 /// bool in replies = true if ack required
 async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
+    async fn process_udp_block(
+        login: &str,
+        password: Option<&str>,
+        block: &[u8],
+        timestamp: u64,
+    ) -> Result<bool, (Error, bool)> {
+        let mut sp = block.splitn(2, |n: &u8| *n == 0);
+        let buf = sp
+            .next()
+            .ok_or_else(|| (Error::invalid_data("data block missing"), false))?;
+        if buf.len() < 3 {
+            return Err((Error::invalid_data("invalid data block"), false));
+        }
+        let need_ack = match buf[0] {
+            OP_PUBLISH => true,
+            psrt::OP_PUBLISH_NO_ACK => false,
+            v => {
+                return Err((
+                    Error::invalid_data(format!("invalid opration: {:x?}", v)),
+                    false,
+                ));
+            }
+        };
+        let priority = buf[1];
+        let topic = std::str::from_utf8(&buf[2..]).map_err(|e| (e.into(), need_ack))?;
+        let data = sp
+            .next()
+            .ok_or_else(|| (Error::invalid_data("data missing"), need_ack))?;
+        if let Some(password) = password {
+            if login.is_empty() && password.is_empty() {
+                if !ALLOW_ANONYMOUS.load(atomic::Ordering::SeqCst) {
+                    return Err((Error::access("anonymous access failed"), need_ack));
+                }
+            } else if !authenticate(login, password).await {
+                return Err((Error::access("authentication failed"), need_ack));
+            }
+        }
+        let acl = if let Some(acl) = get_acl(login).await {
+            acl
+        } else {
+            return Err((
+                Error::access(format!("No ACL for {}", format_login!(login))),
+                need_ack,
+            ));
+        };
+        let topic = psrt::pubsub::prepare_topic(topic).map_err(|e| (e, need_ack))?;
+        #[allow(clippy::redundant_slicing)]
+        if topic.contains(&TOPIC_INVALID_SYMBOLS[..]) {
+            return Err((Error::invalid_data(ERR_INVALID_DATA_BLOCK), need_ack));
+        }
+        if !acl.allow_write(&topic) {
+            return Err((
+                Error::access(format!("pub access denied for {}", topic)),
+                need_ack,
+            ));
+        }
+        let subscribers = { db!().get_subscribers(&topic) };
+        let data = Arc::new(data.to_vec());
+        if !subscribers.is_empty() {
+            push_to_subscribers(&subscribers, priority, &topic, data.clone(), timestamp).await;
+        }
+        #[cfg(feature = "cluster")]
+        psrt::replication::push(priority, &topic, data, timestamp).await;
+        Ok(need_ack)
+    }
     let timestamp = now_ns();
     if frame.len() < 5 {
         return Err((Error::invalid_data("packet too small"), false));
@@ -905,75 +972,41 @@ async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
     if u16::from_le_bytes([frame[2], frame[3]]) != psrt::PROTOCOL_VERSION {
         return Err((Error::invalid_data("unsupported protocol version"), false));
     }
-    if frame[4] != 0 {
-        return Err((Error::invalid_data("invalid packet format"), false));
-    }
-    let mut sp = frame[5..].splitn(4, |n| *n == 0);
+    let etp = psrt::keys::EncryptionType::from_byte(frame[4]).map_err(|e| (e, false))?;
+    trace!("UDP packet encryption: {:?}", etp);
+    let mut sp = frame[5..].splitn(3, |n: &u8| *n == 0);
     let login = std::str::from_utf8(
         sp.next()
-            .ok_or_else(|| (Error::invalid_data("login missing"), false))?,
+            .ok_or_else(|| (Error::invalid_data("login / key id missing"), false))?,
     )
     .map_err(|e| (e.into(), false))?;
-    let password = std::str::from_utf8(
-        sp.next()
-            .ok_or_else(|| (Error::invalid_data("password missing"), false))?,
-    )
-    .map_err(|e| (e.into(), false))?;
-    let buf = sp
-        .next()
-        .ok_or_else(|| (Error::invalid_data("data block missing"), false))?;
-    if buf.len() < 3 {
-        return Err((Error::invalid_data("invalid data block"), false));
-    }
-    let need_ack = match buf[0] {
-        OP_PUBLISH => true,
-        psrt::OP_PUBLISH_NO_ACK => false,
-        v => {
-            return Err((
-                Error::invalid_data(format!("invalid opration: {:x?}", v)),
-                false,
-            ));
-        }
-    };
-    let priority = buf[1];
-    let topic = std::str::from_utf8(&buf[2..]).map_err(|e| (e.into(), need_ack))?;
-    let data = sp
-        .next()
-        .ok_or_else(|| (Error::invalid_data("data missing"), need_ack))?;
-    if login.is_empty() && password.is_empty() {
-        if !ALLOW_ANONYMOUS.load(atomic::Ordering::SeqCst) {
-            return Err((Error::access("anonymous access failed"), need_ack));
-        }
-    } else if !authenticate(login, password).await {
-        return Err((Error::access("authentication failed"), need_ack));
-    }
-    let acl = if let Some(acl) = get_acl(login).await {
-        acl
+    if etp.need_decrypt() {
+        let block = KEY_DB
+            .read()
+            .await
+            .auth_and_decr(
+                sp.next()
+                    .ok_or_else(|| (Error::invalid_data("encryption block missing"), false))?,
+                login,
+                etp,
+            )
+            .map_err(|e| (e, false))?;
+        process_udp_block(login, None, &block, timestamp).await
     } else {
-        return Err((
-            Error::access(format!("No ACL for {}", format_login!(login))),
-            need_ack,
-        ));
-    };
-    let topic = psrt::pubsub::prepare_topic(topic).map_err(|e| (e, need_ack))?;
-    #[allow(clippy::redundant_slicing)]
-    if topic.contains(&TOPIC_INVALID_SYMBOLS[..]) {
-        return Err((Error::invalid_data(ERR_INVALID_DATA_BLOCK), need_ack));
+        let password = std::str::from_utf8(
+            sp.next()
+                .ok_or_else(|| (Error::invalid_data("password missing"), false))?,
+        )
+        .map_err(|e| (e.into(), false))?;
+        process_udp_block(
+            login,
+            Some(password),
+            sp.next()
+                .ok_or_else(|| (Error::invalid_data("password missing"), false))?,
+            timestamp,
+        )
+        .await
     }
-    if !acl.allow_write(&topic) {
-        return Err((
-            Error::access(format!("pub access denied for {}", topic)),
-            need_ack,
-        ));
-    }
-    let subscribers = { db!().get_subscribers(&topic) };
-    let data = Arc::new(data.to_vec());
-    if !subscribers.is_empty() {
-        push_to_subscribers(&subscribers, priority, &topic, data.clone(), timestamp).await;
-    }
-    #[cfg(feature = "cluster")]
-    psrt::replication::push(priority, &topic, data, timestamp).await;
-    Ok(need_ack)
 }
 
 async fn terminate(allow_log: bool) {
@@ -1169,10 +1202,10 @@ fn main() {
         .enable_all()
         .build()
         .unwrap();
-    macro_rules! reload_passwords {
+    macro_rules! reload_db {
         ($db: expr) => {
             if let Err(e) = $db.reload().await {
-                error!("Unable to load password file: {}", e);
+                error!("Unable to load config: {}", e);
             }
         };
     }
@@ -1186,7 +1219,19 @@ fn main() {
             let mut passwords = PASSWORD_DB.write().await;
             let password_file = format_path!(f.clone());
             passwords.set_password_file(&password_file);
-            reload_passwords!(passwords);
+            reload_db!(passwords);
+        }
+        if let Some(ref f) = config.auth.key_file {
+            let mut keys = KEY_DB.write().await;
+            let key_file = format_path!(f.clone());
+            keys.set_key_file(&key_file);
+            keys.set_nonce(config.auth.aes_nonce.as_ref().map(|h| {
+                hex::decode(h)
+                    .expect("unable to parse nonce")
+                    .try_into()
+                    .expect("invalid nonce size (12 bytes required)")
+            }));
+            reload_db!(keys);
         }
         handle_term_signal!(SignalKind::interrupt(), false);
         handle_term_signal!(SignalKind::terminate(), true);
@@ -1209,7 +1254,10 @@ fn main() {
                         error!("ACL reload failed: {}", e);
                     }
                     {
-                        reload_passwords!(PASSWORD_DB.write().await);
+                        reload_db!(PASSWORD_DB.write().await);
+                    }
+                    {
+                        reload_db!(KEY_DB.write().await);
                     }
                 }
             }

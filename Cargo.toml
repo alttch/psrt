@@ -62,10 +62,11 @@ term_size = { version = "0.3.2", optional = true }
 prettytable-rs = { version = "^0.8", optional = true }
 num-format = { version = "0.4.0", optional = true }
 getch = { version = "0.2.1", optional = true }
+aes-gcm = { version = "0.9.4", optional = true }
 
 [features]
 cluster = []
 cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
        "term_size", "prettytable-rs", "num-format", "getch"]
 server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork",
-          "hostname", "hyper", "serde_json", "syslog"]
+          "hostname", "hyper", "serde_json", "syslog", "aes-gcm"]

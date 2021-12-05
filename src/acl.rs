@@ -8,8 +8,13 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 static ERR_PATH_MASK_EMPTY: &str = "Empty path mask";
+
+lazy_static::lazy_static! {
+    pub static ref ACL_DB: RwLock<Db> = RwLock::new(<_>::default());
+}
 
 #[derive(Debug)]
 pub struct Db {
@@ -30,6 +35,10 @@ impl Db {
     #[inline]
     pub fn get_acl(&self, user: &str) -> Option<Arc<Acl>> {
         self.acls.get(user).cloned()
+    }
+    #[inline]
+    pub fn has_acl(&self, user: &str) -> bool {
+        self.acls.contains_key(user)
     }
     #[inline]
     pub fn set_path(&mut self, path: &str) {

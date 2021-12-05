@@ -30,6 +30,7 @@ auth:
   allow_anonymous: true
   password_file: psrt-passwd
   key_file: keys.yml
+  aes_nonce: 5c088bee9dea47a5ee31c2eb
   acl: acl.yml
 cluster:
   config: cluster.yml

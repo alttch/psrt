@@ -49,9 +49,9 @@ pub const COMM_INSECURE: u8 = 0x00;
 pub const COMM_TLS: u8 = 0x01;
 
 pub const AUTH_LOGIN_PASS: u8 = 0x00;
-pub const AUTH_KEY_PLAIN: u8 = 0x01;
-pub const AUTH_KEY_AES128_: u8 = 0x02;
-pub const AUTH_KEY_AES256: u8 = 0x03;
+//pub const AUTH_KEY_PLAIN: u8 = 0x01;
+pub const AUTH_KEY_AES128_GCM: u8 = 0x02;
+pub const AUTH_KEY_AES256_GCM: u8 = 0x03;
 
 #[inline]
 pub fn reduce_timeout(timeout: Duration, op_start: Instant) -> Duration {
@@ -186,6 +186,13 @@ impl From<hex::FromHexError> for Error {
     }
 }
 
+#[cfg(feature = "server")]
+impl From<aes_gcm::Error> for Error {
+    fn from(e: aes_gcm::Error) -> Error {
+        Error::access(format!("Unable to decrypt block: {}", e))
+    }
+}
+
 impl Error {
     pub fn access(message: impl fmt::Display) -> Self {
         Self {
@@ -248,6 +255,8 @@ impl fmt::Display for Error {
 pub mod acl;
 pub mod client;
 pub mod comm;
+#[cfg(feature = "server")]
+pub mod keys;
 #[cfg(feature = "server")]
 pub mod passwords;
 #[cfg(feature = "server")]
