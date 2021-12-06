@@ -179,7 +179,7 @@ ciphers can have static nonce only. It is recommended to generate a random
 nonce and use it on both client and servers:
 
 ```shell
-head -c16384 /dev/urandom|sha256sum|cut -c-12
+head -c16384 /dev/urandom|sha256sum|cut -c-24
 ```
 
 If there is no nonce defined, zero-nonce is used (less secure).
