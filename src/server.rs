@@ -974,7 +974,7 @@ async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
     }
     let etp = psrt::keys::EncryptionType::from_byte(frame[4]).map_err(|e| (e, false))?;
     trace!("UDP packet encryption: {:?}", etp);
-    let mut sp = frame[5..].splitn(3, |n: &u8| *n == 0);
+    let mut sp = frame[5..].splitn(2, |n: &u8| *n == 0);
     let login = std::str::from_utf8(
         sp.next()
             .ok_or_else(|| (Error::invalid_data("login / key id missing"), false))?,
@@ -993,6 +993,10 @@ async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
             .map_err(|e| (e, false))?;
         process_udp_block(login, None, &block, timestamp).await
     } else {
+        let block = sp
+            .next()
+            .ok_or_else(|| (Error::invalid_data("invalid packet format"), false))?;
+        let mut sp = block.splitn(2, |n: &u8| *n == 0);
         let password = std::str::from_utf8(
             sp.next()
                 .ok_or_else(|| (Error::invalid_data("password missing"), false))?,
@@ -1002,7 +1006,7 @@ async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
             login,
             Some(password),
             sp.next()
-                .ok_or_else(|| (Error::invalid_data("password missing"), false))?,
+                .ok_or_else(|| (Error::invalid_data("data missing"), false))?,
             timestamp,
         )
         .await
