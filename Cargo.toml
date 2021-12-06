@@ -14,6 +14,11 @@ autoexamples = false
 name = "pubsub"
 path = "examples/pubsub.rs"
 
+[[example]]
+name = "udp_aes"
+path = "examples/udp_aes.rs"
+required-features = ["server"]
+
 [lib]
 name = "psrt"
 path = "src/lib.rs"
@@ -67,6 +72,6 @@ aes-gcm = { version = "0.9.4", optional = true }
 [features]
 cluster = []
 cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
-       "term_size", "prettytable-rs", "num-format", "getch"]
-server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork",
-          "hostname", "hyper", "serde_json", "syslog", "aes-gcm"]
+    "term_size", "prettytable-rs", "num-format", "getch"]
+    server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork",
+    "hostname", "hyper", "serde_json", "syslog", "aes-gcm"]
