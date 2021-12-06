@@ -76,20 +76,20 @@ impl Keys {
             let keys: BTreeMap<String, String> = serde_yaml::from_str(&data)?;
             let mut key_map = BTreeMap::new();
             let acl_db = crate::acl::ACL_DB.read().await;
-            for (k, v) in keys {
-                log::trace!("+ key {} ({})", k, v);
+            for (login, k) in keys {
+                log::trace!("+ key {} ({})", k, login);
                 match k.parse::<Token>() {
                     Ok(token) => {
-                        if acl_db.has_acl(&v) {
+                        if acl_db.has_acl(&login) {
                             let aes_key_128 = aes_gcm::Key::from_slice(&token.as_bytes()[0..16]);
                             let aes_key_256 = aes_gcm::Key::from_slice(token.as_bytes());
                             let key = Key {
                                 cipher_aes_128: Aes128Gcm::new(aes_key_128),
                                 cipher_aes_256: Aes256Gcm::new(aes_key_256),
                             };
-                            key_map.insert(v, key);
+                            key_map.insert(login, key);
                         } else {
-                            log::warn!("No ACL defined for the key {}", v);
+                            log::warn!("No ACL defined for the key {}", login);
                         }
                     }
                     Err(e) => log::error!("Unable to parse key: {}", e),

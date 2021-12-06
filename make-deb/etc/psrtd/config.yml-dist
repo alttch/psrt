@@ -29,3 +29,7 @@ auth:
   # use htpasswd -B to manage password file
   password_file: psrt-passwd
   acl: acl.yml
+  # AES keys for UDP encryption
+  #key_file: keys.yml
+  # Static random AES nonce (recommended), 12 bytes
+  #aes_nonce: 5c088bee9dea47a5ee31c2eb
