@@ -153,6 +153,8 @@ AES256-GCM.
 To enable UDP encryption, add to "auth" section of the main config:
 
 ```yaml
+auth:
+    # ........
     key_file: keys.yml
     aes_nonce: <random-12-byte-nonce>
 ```
