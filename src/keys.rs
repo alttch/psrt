@@ -60,7 +60,7 @@ impl Keys {
             self.nonce = nonce;
         } else {
             log::warn!("AES nonce not defined, using zeroes");
-            self.nonce = <_>::default()
+            self.nonce = <_>::default();
         }
     }
     pub fn set_key_file(&mut self, path: &str) {
@@ -116,11 +116,11 @@ impl Keys {
             match tp {
                 EncryptionType::Aes128Gcm => key
                     .cipher_aes_128
-                    .decrypt(&Nonce::from_slice(&self.nonce), block)
+                    .decrypt(Nonce::from_slice(&self.nonce), block)
                     .map_err(Into::into),
                 EncryptionType::Aes256Gcm => key
                     .cipher_aes_256
-                    .decrypt(&Nonce::from_slice(&self.nonce), block)
+                    .decrypt(Nonce::from_slice(&self.nonce), block)
                     .map_err(Into::into),
                 EncryptionType::No => panic!("Attempt to decrypt unencrypted"),
             }

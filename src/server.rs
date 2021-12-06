@@ -895,73 +895,74 @@ async fn run_server(
     }
 }
 
+async fn process_udp_block(
+    login: &str,
+    password: Option<&str>,
+    block: &[u8],
+    timestamp: u64,
+) -> Result<bool, (Error, bool)> {
+    let mut sp = block.splitn(2, |n: &u8| *n == 0);
+    let buf = sp
+        .next()
+        .ok_or_else(|| (Error::invalid_data("data block missing"), false))?;
+    if buf.len() < 3 {
+        return Err((Error::invalid_data("invalid data block"), false));
+    }
+    let need_ack = match buf[0] {
+        OP_PUBLISH => true,
+        psrt::OP_PUBLISH_NO_ACK => false,
+        v => {
+            return Err((
+                Error::invalid_data(format!("invalid opration: {:x?}", v)),
+                false,
+            ));
+        }
+    };
+    let priority = buf[1];
+    let topic = std::str::from_utf8(&buf[2..]).map_err(|e| (e.into(), need_ack))?;
+    let data = sp
+        .next()
+        .ok_or_else(|| (Error::invalid_data("data missing"), need_ack))?;
+    if let Some(password) = password {
+        if login.is_empty() && password.is_empty() {
+            if !ALLOW_ANONYMOUS.load(atomic::Ordering::SeqCst) {
+                return Err((Error::access("anonymous access failed"), need_ack));
+            }
+        } else if !authenticate(login, password).await {
+            return Err((Error::access("authentication failed"), need_ack));
+        }
+    }
+    let acl = if let Some(acl) = get_acl(login).await {
+        acl
+    } else {
+        return Err((
+            Error::access(format!("No ACL for {}", format_login!(login))),
+            need_ack,
+        ));
+    };
+    let topic = psrt::pubsub::prepare_topic(topic).map_err(|e| (e, need_ack))?;
+    #[allow(clippy::redundant_slicing)]
+    if topic.contains(&TOPIC_INVALID_SYMBOLS[..]) {
+        return Err((Error::invalid_data(ERR_INVALID_DATA_BLOCK), need_ack));
+    }
+    if !acl.allow_write(&topic) {
+        return Err((
+            Error::access(format!("pub access denied for {}", topic)),
+            need_ack,
+        ));
+    }
+    let subscribers = { db!().get_subscribers(&topic) };
+    let data = Arc::new(data.to_vec());
+    if !subscribers.is_empty() {
+        push_to_subscribers(&subscribers, priority, &topic, data.clone(), timestamp).await;
+    }
+    #[cfg(feature = "cluster")]
+    psrt::replication::push(priority, &topic, data, timestamp).await;
+    Ok(need_ack)
+}
+
 /// bool in replies = true if ack required
 async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
-    async fn process_udp_block(
-        login: &str,
-        password: Option<&str>,
-        block: &[u8],
-        timestamp: u64,
-    ) -> Result<bool, (Error, bool)> {
-        let mut sp = block.splitn(2, |n: &u8| *n == 0);
-        let buf = sp
-            .next()
-            .ok_or_else(|| (Error::invalid_data("data block missing"), false))?;
-        if buf.len() < 3 {
-            return Err((Error::invalid_data("invalid data block"), false));
-        }
-        let need_ack = match buf[0] {
-            OP_PUBLISH => true,
-            psrt::OP_PUBLISH_NO_ACK => false,
-            v => {
-                return Err((
-                    Error::invalid_data(format!("invalid opration: {:x?}", v)),
-                    false,
-                ));
-            }
-        };
-        let priority = buf[1];
-        let topic = std::str::from_utf8(&buf[2..]).map_err(|e| (e.into(), need_ack))?;
-        let data = sp
-            .next()
-            .ok_or_else(|| (Error::invalid_data("data missing"), need_ack))?;
-        if let Some(password) = password {
-            if login.is_empty() && password.is_empty() {
-                if !ALLOW_ANONYMOUS.load(atomic::Ordering::SeqCst) {
-                    return Err((Error::access("anonymous access failed"), need_ack));
-                }
-            } else if !authenticate(login, password).await {
-                return Err((Error::access("authentication failed"), need_ack));
-            }
-        }
-        let acl = if let Some(acl) = get_acl(login).await {
-            acl
-        } else {
-            return Err((
-                Error::access(format!("No ACL for {}", format_login!(login))),
-                need_ack,
-            ));
-        };
-        let topic = psrt::pubsub::prepare_topic(topic).map_err(|e| (e, need_ack))?;
-        #[allow(clippy::redundant_slicing)]
-        if topic.contains(&TOPIC_INVALID_SYMBOLS[..]) {
-            return Err((Error::invalid_data(ERR_INVALID_DATA_BLOCK), need_ack));
-        }
-        if !acl.allow_write(&topic) {
-            return Err((
-                Error::access(format!("pub access denied for {}", topic)),
-                need_ack,
-            ));
-        }
-        let subscribers = { db!().get_subscribers(&topic) };
-        let data = Arc::new(data.to_vec());
-        if !subscribers.is_empty() {
-            push_to_subscribers(&subscribers, priority, &topic, data.clone(), timestamp).await;
-        }
-        #[cfg(feature = "cluster")]
-        psrt::replication::push(priority, &topic, data, timestamp).await;
-        Ok(need_ack)
-    }
     let timestamp = now_ns();
     if frame.len() < 5 {
         return Err((Error::invalid_data("packet too small"), false));
