@@ -168,7 +168,7 @@ user2: <aes_key>
 ```
 
 where aes\_key is a random 32-byte (for AES128 only first 16 bytes are used)
-sequence (hex), which can be generated, e.g. with:
+hex sequence, which can be generated, e.g. with:
 
 ```shell
 head -c16384 /dev/urandom|sha256sum|awk '{ print $1 }'
