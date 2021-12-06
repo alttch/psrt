@@ -163,8 +163,8 @@ The keys file has the following format and there can be only one encryption key
 per user:
 
 ```yaml
-user1: aes_key
-user2: aes_key
+user1: <aes_key>
+user2: <aes_key>
 ```
 
 where aes\_key is a random 32-byte sequence (hex), which can be generated, e.g.
