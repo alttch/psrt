@@ -176,7 +176,7 @@ head -c16384 /dev/urandom|sha256sum|awk '{ print $1 }'
 
 As there is no any handshake between clients and servers in UDP mode, AES GCM
 ciphers can have static nonce only. It is recommended to generate a random
-nonce and use it on both client and servers:
+nonce and use it on both clients and servers:
 
 ```shell
 head -c16384 /dev/urandom|sha256sum|cut -c-24
