@@ -151,9 +151,28 @@ Not required. The client can close the data socket at any time.
 * 0x01 - OP\_PUBLISH
 * 0x21 - OP\_PUBLISH\_NO\_ACK
 
+### Plain
+
 Client:
 
-EE AA 01 00 (VERSION) 00 (RESERVED) LOGIN 00 PASSWORD 00 OP PRIO(u8=7F) TOPIC 00 DATA
+EE AA 01 00 (VERSION) 00 (PLAIN) LOGIN 00 PASSWORD 00 OP PRIO(u8=7F) TOPIC 00 DATA
+
+Server (if ack required):
+
+CONTROL\_HEADER (2 bytes) PROTOCOL\_VER (2 bytes) OK
+
+### Encrypted
+
+Client:
+
+EE AA 01 00 (VERSION) ENC\_TYPE LOGIN 00 ENC\_BLOCK
+
+where ENC\_TYPE:
+
+* 0x02 - AES128-GCM
+* 0x03 - AES256-GCM
+
+and ENC\_BLOCK: OP PRIO(u8=7F) TOPIC 00 DATA
 
 Server (if ack required):
 

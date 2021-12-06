@@ -144,6 +144,44 @@ src="https://raw.githubusercontent.com/alttch/psrt/main/screenshots/cli_top.png"
 
 <https://github.com/alttch/psrt/blob/main/proto.md>
 
+## UDP encryption
+
+PSRT supports symmetrical encrypted UDP frames (see the protocol
+specification). Currently supported encryption modes: AES128-GCM and
+AES256-GCM.
+
+To enable UDP encryption, add to "auth" section of the main config:
+
+```yaml
+    key_file: keys.yml
+    aes_nonce: <random-12-byte-nonce>
+```
+
+The keys file has the following format and there can be only one encryption key
+per user:
+
+```yaml
+user1: aes_key
+user2: aes_key
+```
+
+where aes\_key is a random 32-byte sequence (hex), which can be generated, e.g.
+with:
+
+```shell
+head -c16384 /dev/urandom|sha256sum|awk '{ print $1 }'
+```
+
+As there is no any handshake between clients and servers in UDP mode, AES GCM
+ciphers can have static nonce only. It is recommended to generate a random
+nonce and use it on both client and servers:
+
+```shell
+head -c16384 /dev/urandom|sha256sum|cut -c-12
+```
+
+If there is no nonce defined, zero-nonce is used (less secure).
+
 ## Enterprise version
 
 Download packages from <https://get.eva-ics.com/psrt-enterprise/>
