@@ -988,7 +988,7 @@ async fn process_udp_packet(frame: Vec<u8>) -> Result<bool, (Error, bool)> {
             .auth_and_decr(
                 sp.next()
                     .ok_or_else(|| (Error::invalid_data("encryption block missing"), false))?,
-                login,
+                if login.is_empty() { "_" } else { login },
                 etp,
             )
             .map_err(|e| (e, false))?;
