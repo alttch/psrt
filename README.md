@@ -147,7 +147,7 @@ src="https://raw.githubusercontent.com/alttch/psrt/main/screenshots/cli_top.png"
 ## UDP encryption
 
 PSRT supports symmetrical encrypted UDP frames (see the protocol
-specification). Currently supported encryption modes: AES128-GCM and
+specifications). Currently supported encryption modes: AES128-GCM and
 AES256-GCM.
 
 To enable UDP encryption, add to "auth" section of the main config:
