@@ -699,7 +699,6 @@ struct ConfigAuth {
     allow_anonymous: bool,
     password_file: Option<String>,
     key_file: Option<String>,
-    aes_nonce: Option<String>,
     acl: String,
 }
 
@@ -1230,12 +1229,6 @@ fn main() {
             let mut keys = KEY_DB.write().await;
             let key_file = format_path!(f.clone());
             keys.set_key_file(&key_file);
-            keys.set_nonce(config.auth.aes_nonce.as_ref().map(|h| {
-                hex::decode(h)
-                    .expect("unable to parse nonce")
-                    .try_into()
-                    .expect("invalid nonce size (12 bytes required)")
-            }));
             reload_db!(keys);
         }
         handle_term_signal!(SignalKind::interrupt(), false);

@@ -41,7 +41,6 @@ pub struct Key {
 pub struct Keys {
     key_file: Option<String>,
     keys: Option<BTreeMap<String, Key>>,
-    nonce: [u8; 12],
 }
 
 impl Default for Keys {
@@ -49,20 +48,11 @@ impl Default for Keys {
         Self {
             key_file: None,
             keys: None,
-            nonce: <_>::default(),
         }
     }
 }
 
 impl Keys {
-    pub fn set_nonce(&mut self, nonce: Option<[u8; 12]>) {
-        if let Some(nonce) = nonce {
-            self.nonce = nonce;
-        } else {
-            log::warn!("AES nonce not defined, using zeroes");
-            self.nonce = <_>::default();
-        }
-    }
     pub fn set_key_file(&mut self, path: &str) {
         self.key_file.replace(path.to_owned());
     }
@@ -113,14 +103,17 @@ impl Keys {
         tp: EncryptionType,
     ) -> Result<Vec<u8>, Error> {
         if let Some(Some(key)) = self.keys.as_ref().map(|m| m.get(key_id)) {
+            if block.len() < 13 {
+                return Err(Error::invalid_data("Invalid encrypted data"));
+            }
             match tp {
                 EncryptionType::Aes128Gcm => key
                     .cipher_aes_128
-                    .decrypt(Nonce::from_slice(&self.nonce), block)
+                    .decrypt(Nonce::from_slice(&block[0..12]), &block[12..])
                     .map_err(Into::into),
                 EncryptionType::Aes256Gcm => key
                     .cipher_aes_256
-                    .decrypt(Nonce::from_slice(&self.nonce), block)
+                    .decrypt(Nonce::from_slice(&block[0..12]), &block[12..])
                     .map_err(Into::into),
                 EncryptionType::No => panic!("Attempt to decrypt unencrypted"),
             }

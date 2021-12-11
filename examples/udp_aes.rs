@@ -1,12 +1,19 @@
 use aes_gcm::aead::{Aead, NewAead};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
+use rand::Rng;
 use std::net::UdpSocket;
 
 fn main() {
     let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
     let aes_key =
         hex::decode("26fd38045707792a9bc50f3761a58987c4a9362cf60389f341c28e37b1125d93").unwrap();
-    let aes_nonce = hex::decode("5c088bee9dea47a5ee31c2eb").unwrap();
+    let aes_nonce: [u8; 12] = rand::thread_rng()
+        .sample_iter(&rand::distributions::Uniform::new(0, 0xff))
+        .take(12)
+        .map(u8::from)
+        .collect::<Vec<u8>>()
+        .try_into()
+        .unwrap();
     let key = Key::from_slice(&aes_key);
     let cipher = Aes256Gcm::new(key);
     let nonce = Nonce::from_slice(&aes_nonce);
@@ -23,6 +30,7 @@ fn main() {
     let enc_block = cipher
         .encrypt(nonce, data.as_ref())
         .expect("encryption failure!");
+    packet.extend(nonce);
     packet.extend(enc_block);
     socket.send_to(&packet, "127.0.0.1:2873").unwrap();
 }

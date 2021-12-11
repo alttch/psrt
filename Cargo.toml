@@ -17,7 +17,7 @@ path = "examples/pubsub.rs"
 [[example]]
 name = "udp_aes"
 path = "examples/udp_aes.rs"
-required-features = ["server"]
+required-features = ["crypto"]
 
 [lib]
 name = "psrt"
@@ -38,7 +38,6 @@ overflow-checks = false
 
 [dependencies]
 tokio = { version = "1.12.0", features = ["full"] }
-rand = "0.8.4"
 lazy_static = "1.4.0"
 log = "0.4.14"
 hex = "0.4.2"
@@ -68,10 +67,12 @@ prettytable-rs = { version = "^0.8", optional = true }
 num-format = { version = "0.4.0", optional = true }
 getch = { version = "0.2.1", optional = true }
 aes-gcm = { version = "0.9.4", optional = true }
+rand = { version = "0.8.4", optional = true }
 
 [features]
 cluster = []
 cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
-    "term_size", "prettytable-rs", "num-format", "getch"]
-    server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork",
-    "hostname", "hyper", "serde_json", "syslog", "aes-gcm"]
+    "term_size", "prettytable-rs", "num-format", "getch", "rand"]
+server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork",
+    "hostname", "hyper", "serde_json", "syslog", "aes-gcm", "rand"]
+crypto = ["aes-gcm", "rand"]

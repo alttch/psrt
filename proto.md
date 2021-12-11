@@ -172,7 +172,7 @@ where ENC\_TYPE:
 * 0x02 - AES128-GCM
 * 0x03 - AES256-GCM
 
-and ENC\_BLOCK: OP PRIO(u8=7F) TOPIC 00 DATA
+and ENC\_BLOCK: NONCE(12 bytes) OP PRIO(u8=7F) TOPIC 00 DATA
 
 Server (if ack required):
 

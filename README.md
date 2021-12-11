@@ -156,7 +156,6 @@ To enable UDP encryption, add to "auth" section of the main config:
 auth:
     # ........
     key_file: keys.yml
-    aes_nonce: <random-12-byte-nonce>
 ```
 
 The keys file has the following format and there can be only one encryption key
@@ -173,16 +172,6 @@ hex sequence, which can be generated, e.g. with:
 ```shell
 head -c16384 /dev/urandom|sha256sum|awk '{ print $1 }'
 ```
-
-As there is no any handshake between clients and servers in UDP mode, AES GCM
-ciphers can have static nonce only. It is recommended to generate a random
-nonce and use it on both clients and servers:
-
-```shell
-head -c16384 /dev/urandom|sha256sum|cut -c-24
-```
-
-If there is no nonce defined, zero-nonce is used (less secure).
 
 ## Enterprise version
 
