@@ -1278,8 +1278,8 @@ mod stats {
     use std::convert::Infallible;
     use std::net::SocketAddr;
 
-    const HTML_STATS: &str = include_str!("stats.html");
-    const JS_CHART_MIN: &str = include_str!("chart.min.js");
+    static HTML_STATS: &str = include_str!("stats.html");
+    static JS_CHART_MIN: &str = include_str!("chart.min.js");
 
     macro_rules! http_error {
         ($status: expr) => {
