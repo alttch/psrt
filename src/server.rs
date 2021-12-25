@@ -269,7 +269,7 @@ async fn process_control(
                             );
                             break;
                         }
-                        if db.subscribe(topic, client.clone()).is_err() {
+                        if db.subscribe(topic, &client).is_err() {
                             res = RESPONSE_ERR;
                             break;
                         }
@@ -293,7 +293,7 @@ async fn process_control(
                 {
                     let mut db = dbm!();
                     for topic in topics {
-                        if db.unsubscribe(topic, client.clone()).is_err() {
+                        if db.unsubscribe(topic, &client).is_err() {
                             success = false;
                             break;
                         }

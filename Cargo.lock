@@ -963,6 +963,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "submap",
  "syslog",
  "term_size",
  "tokio",
@@ -1223,6 +1224,12 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "submap"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb43d1f8a7526184aa395a88f24ad9550485abdaa78820e656fd390631abe6f3"
 
 [[package]]
 name = "subtle"
