@@ -63,6 +63,7 @@ pub fn reduce_timeout(timeout: Duration, op_start: Instant) -> Duration {
 }
 #[derive(Debug, Clone)]
 pub struct Message {
+    #[allow(dead_code)]
     priority: u8,
     topic: String,
     data: Vec<u8>,
