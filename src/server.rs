@@ -841,7 +841,7 @@ async fn run_server(
                 match udp_sock.recv_from(&mut buf).await {
                     Ok((len, addr)) => {
                         trace!("udp packet {} bytes from {}", len, addr);
-                        let frame: Vec<u8> = buf[..len].iter().copied().collect();
+                        let frame: Vec<u8> = buf[..len].to_vec();
                         let ack_code = match process_udp_packet(frame).await {
                             Ok(true) => Some(RESPONSE_OK),
                             Err((e, need_ack)) => {
