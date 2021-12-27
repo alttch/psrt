@@ -338,7 +338,7 @@ async fn process_control(
                 // prepare topic before to send it formatted to all clients
                 if let Ok(topic) = psrt::pubsub::prepare_topic(std::str::from_utf8(&buf)?) {
                     #[allow(clippy::redundant_slicing)]
-                    if topic.contains(&TOPIC_INVALID_SYMBOLS[..]) {
+                    if topic.contains(TOPIC_INVALID_SYMBOLS) {
                         return Err(Error::invalid_data(ERR_INVALID_DATA_BLOCK));
                     }
                     if acl.allow_write(&topic) {
@@ -941,7 +941,7 @@ async fn process_udp_block(
     };
     let topic = psrt::pubsub::prepare_topic(topic).map_err(|e| (e, need_ack))?;
     #[allow(clippy::redundant_slicing)]
-    if topic.contains(&TOPIC_INVALID_SYMBOLS[..]) {
+    if topic.contains(TOPIC_INVALID_SYMBOLS) {
         return Err((Error::invalid_data(ERR_INVALID_DATA_BLOCK), need_ack));
     }
     if !acl.allow_write(&topic) {
