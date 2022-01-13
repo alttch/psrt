@@ -67,6 +67,9 @@ static MAX_TOPIC_LENGTH: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 static CONFIG_FILES: &[&str] = &["/etc/psrtd/config.yml", "/usr/local/etc/psrtd/config.yml"];
 
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 #[cfg(feature = "cluster")]
 static APP_NAME: &str = "PSRT Enterprise";
 #[cfg(not(feature = "cluster"))]

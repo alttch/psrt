@@ -18,6 +18,9 @@ use psrt::DEFAULT_PRIORITY;
 
 static ERR_TOPIC_NOT_SPECIFIED: &str = "Topic not specified";
 
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 #[derive(Clap)]
 #[clap(version = psrt::VERSION, author = psrt::AUTHOR)]
 struct Opts {
