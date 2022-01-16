@@ -18,6 +18,7 @@ use psrt::DEFAULT_PRIORITY;
 
 static ERR_TOPIC_NOT_SPECIFIED: &str = "Topic not specified";
 
+#[cfg(not(feature = "std-alloc"))]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
