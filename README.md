@@ -11,6 +11,11 @@ providing low latency, dealing with slow channels and large payloads.
 PSRT can process 100K+ messages on a single node with very low latencies
 (<1ms). Speeds are reasonable (1K+ ops/sec) even with enormous (1MB+) payloads.
 
+PSRT is designed to work in wide-area networks, where connections can be slow,
+unstable and clients must be authenticated. If you need a local-network
+or local-host solution with even lower latencies, higher speeds, more features,
+but zero security, try [ELBUS](https://github.com/alttch/elbus/).
+
 Topic subscriptions in PubSubRT are processed with B-tree algorithms, which
 allows the server to handle hundred thousands subscriptions without any speed
 loss.
