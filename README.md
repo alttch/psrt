@@ -180,7 +180,7 @@ head -c16384 /dev/urandom|sha256sum|awk '{ print $1 }'
 
 ## Enterprise version
 
-Download packages from <https://get.eva-ics.com/psrt-enterprise/>
+Download packages from <https://pub.bma.ai/psrt-enterprise/>
 
 [Cluster setup
 instructions](https://github.com/alttch/psrt/blob/main/cluster.md)
