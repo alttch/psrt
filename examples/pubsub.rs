@@ -43,4 +43,3 @@ async fn main() {
     client.bye().await.unwrap();
     receiver_fut.await.unwrap();
 }
-
