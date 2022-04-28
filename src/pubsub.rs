@@ -1,19 +1,16 @@
-use tokio::sync::RwLock;
-use tokio::task::JoinHandle;
-
+use crate::token::Token;
+use crate::Error;
+use log::trace;
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::net::SocketAddr;
 use std::sync::atomic;
 use std::sync::Arc;
 use submap::SubMap;
-
-use serde::Serialize;
-
-use log::trace;
-
-use crate::token::Token;
-use crate::Error;
+use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
 
 pub const TOPIC_INVALID_SYMBOLS: &[char] = &['#', '+'];
 
@@ -52,6 +49,7 @@ pub struct MessageFrame {
 #[derive(Debug)]
 pub struct ServerClientData {
     login: String,
+    addr: SocketAddr,
     token: Token,
     pub data_channel: RwLock<Option<async_channel::Sender<Arc<MessageFrame>>>>,
     pub tasks: RwLock<Vec<JoinHandle<Result<(), Error>>>>,
@@ -65,6 +63,10 @@ impl ServerClientData {
     #[inline]
     pub fn login(&self) -> &str {
         &self.login
+    }
+    #[inline]
+    pub fn addr(&self) -> SocketAddr {
+        self.addr
     }
     pub async fn abort_tasks(&self) {
         let mut tasks = self.tasks.write().await;
@@ -158,18 +160,26 @@ impl ServerClientDB {
             Err(Error::access("data channel access denied"))
         }
     }
+
+    pub async fn unregister_data_channel(&mut self, token: &Token) {
+        if let Some(ref mut client) = self.clients_by_token.get_mut(token) {
+            let mut dc = client.data_channel.write().await;
+            dc.take();
+        }
+    }
     pub fn get_stats(&self) -> ServerClientDBStats {
         ServerClientDBStats {
             subscription_count: self.submap.subscription_count(),
             client_count: self.submap.client_count(),
         }
     }
-    pub fn register_client(&mut self, login: &str) -> ServerClient {
+    pub fn register_client(&mut self, login: &str, addr: SocketAddr) -> ServerClient {
         trace!("registering new client");
         loop {
             let client = Arc::new(ServerClientData {
                 token: Token::new(),
                 login: login.to_owned(),
+                addr,
                 data_channel: RwLock::new(None),
                 tasks: RwLock::new(Vec::new()),
             });

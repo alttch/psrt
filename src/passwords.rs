@@ -3,18 +3,10 @@ use std::collections::BTreeMap;
 
 use crate::Error;
 
+#[derive(Default)]
 pub struct Passwords {
     password_file: Option<String>,
     passwords: Option<BTreeMap<String, String>>,
-}
-
-impl Default for Passwords {
-    fn default() -> Self {
-        Self {
-            password_file: None,
-            passwords: None,
-        }
-    }
 }
 
 impl Passwords {

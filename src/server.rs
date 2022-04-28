@@ -215,7 +215,7 @@ async fn push_to_subscribers(
         let c = s.data_channel.read().await;
         if let Some(dc) = c.as_ref() {
             if let Err(e) = dc.send(message.clone()).await {
-                error!("{}", e);
+                error!("{} ({}@{})", e, s.login(), s.addr());
             }
         }
     }
@@ -520,7 +520,17 @@ async fn handle_stream(
     let (mut stream, st) =
         init_stream(client_stream, addr, timeout, acceptor, allow_no_tls).await?;
     if st == StreamType::Data {
-        launch_data_stream(stream, addr, timeout).await?;
+        let mut buf: [u8; 32] = [0; 32];
+        let op_start = Instant::now();
+        stream.read(&mut buf).await?;
+        let token = Token::from(buf);
+        let mut buf: [u8; 1] = [0];
+        stream
+            .read_with_timeout(&mut buf, reduce_timeout(timeout, op_start))
+            .await?;
+        let res = launch_data_stream(stream, token.clone(), addr, timeout, buf[0]).await;
+        dbm!().unregister_data_channel(&token).await;
+        res?;
         return Ok(false);
     }
     let frame = stream.read_frame(Some(MAX_AUTH_FRAME_SIZE)).await?;
@@ -560,7 +570,7 @@ async fn handle_stream(
             format_login!(login)
         )));
     };
-    let client = { dbm!().register_client(login) };
+    let client = { dbm!().register_client(login, addr) };
     stream.write(client.token_as_bytes()).await?;
     let result = process_control(stream, client.clone(), addr, acl, timeout).await;
     {
@@ -575,28 +585,22 @@ async fn handle_stream(
 #[allow(clippy::too_many_lines)]
 async fn launch_data_stream(
     mut stream: SStream,
+    token: Token,
     addr: SocketAddr,
     timeout: Duration,
+    freq: u8,
 ) -> Result<(), Error> {
-    let mut buf: [u8; 32] = [0; 32];
-    let op_start = Instant::now();
-    stream.read(&mut buf).await?;
-    let token = Token::from(buf);
     let (tx, rx) = async_channel::bounded(psrt::pubsub::get_data_queue_size());
-    let mut buf: [u8; 1] = [0];
     let latency_warn = psrt::pubsub::get_latency_warn();
-    stream
-        .read_with_timeout(&mut buf, reduce_timeout(timeout, op_start))
-        .await?;
     {
         match dbm!().register_data_channel(&token, tx).await {
             Ok((channel, client)) => {
                 respond_ok!(stream);
-                let beacon_freq = u64::from(buf[0]) * 1000 / 2;
+                let beacon_freq = u64::from(freq) * 1000 / 2;
                 trace!(
                     "client {} reported timeout: {}, setting beacon freq to {} ms",
                     token,
-                    buf[0],
+                    freq,
                     beacon_freq
                 );
                 let beacon_interval = Duration::from_millis(beacon_freq);
@@ -1155,12 +1159,8 @@ fn main() {
         let certs = load_certs(&c).unwrap();
         info!("loading TLS key {}", key_path);
         let mut keys = load_keys(&key_path).unwrap();
-        if certs.is_empty() {
-            panic!("Unable to load TLS certs");
-        }
-        if keys.is_empty() {
-            panic!("Unable to load TLS keys");
-        }
+        assert!(!certs.is_empty(), "Unable to load TLS certs");
+        assert!(!keys.is_empty(), "Unable to load TLS keys");
         let tls_config = rustls::ServerConfig::builder()
             .with_safe_defaults()
             .with_no_client_auth()

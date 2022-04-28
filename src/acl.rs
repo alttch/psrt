@@ -16,19 +16,10 @@ lazy_static::lazy_static! {
     pub static ref ACL_DB: RwLock<Db> = RwLock::new(<_>::default());
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Db {
     acls: BTreeMap<String, Arc<Acl>>,
     path: String,
-}
-
-impl Default for Db {
-    fn default() -> Self {
-        Self {
-            acls: <_>::default(),
-            path: String::new(),
-        }
-    }
 }
 
 impl Db {
@@ -168,17 +159,9 @@ impl<'de> serde::de::Visitor<'de> for PathMaskVisitor {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct PathMaskList {
     pub path_masks: HashSet<PathMask>,
-}
-
-impl Default for PathMaskList {
-    fn default() -> Self {
-        Self {
-            path_masks: <_>::default(),
-        }
-    }
 }
 
 impl Serialize for PathMaskList {

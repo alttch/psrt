@@ -38,18 +38,10 @@ pub struct Key {
     cipher_aes_256: Aes256Gcm,
 }
 
+#[derive(Default)]
 pub struct Keys {
     key_file: Option<String>,
     keys: Option<BTreeMap<String, Key>>,
-}
-
-impl Default for Keys {
-    fn default() -> Self {
-        Self {
-            key_file: None,
-            keys: None,
-        }
-    }
 }
 
 impl Keys {
