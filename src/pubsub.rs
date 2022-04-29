@@ -68,6 +68,10 @@ impl ServerClientData {
         self.data_channel.lock().unwrap().clone()
     }
     #[inline]
+    pub fn token(&self) -> &Token {
+        &self.token
+    }
+    #[inline]
     pub fn login(&self) -> &str {
         &self.login
     }
@@ -169,11 +173,11 @@ impl ServerClientDB {
     ///
     /// Will panic if the mutex is poisoned
     pub fn register_data_channel(
-        &mut self,
+        &self,
         token: &Token,
         channel: async_channel::Sender<Arc<MessageFrame>>,
     ) -> Result<(async_channel::Sender<Arc<MessageFrame>>, ServerClient), Error> {
-        if let Some(ref mut client) = self.clients_by_token.get_mut(token) {
+        if let Some(client) = self.clients_by_token.get(token) {
             let mut dc = client.data_channel.lock().unwrap();
             if dc.is_some() {
                 trace!("duplicate data channel request for {}, refusing", token);
@@ -190,8 +194,8 @@ impl ServerClientDB {
     /// # Panics
     ///
     /// Will panic if the mutex is poisoned
-    pub fn unregister_data_channel(&mut self, token: &Token) {
-        if let Some(ref mut client) = self.clients_by_token.get_mut(token) {
+    pub fn unregister_data_channel(&self, token: &Token) {
+        if let Some(client) = self.clients_by_token.get(token) {
             let mut dc = client.data_channel.lock().unwrap();
             dc.take();
         }
