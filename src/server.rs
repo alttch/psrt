@@ -510,17 +510,7 @@ async fn handle_stream(
     let (mut stream, st) =
         init_stream(client_stream, addr, timeout, acceptor, allow_no_tls).await?;
     if st == StreamType::Data {
-        let mut buf: [u8; 32] = [0; 32];
-        let op_start = Instant::now();
-        stream.read(&mut buf).await?;
-        let token = Token::from(buf);
-        let mut buf: [u8; 1] = [0];
-        stream
-            .read_with_timeout(&mut buf, reduce_timeout(timeout, op_start))
-            .await?;
-        let res = launch_data_stream(stream, token.clone(), addr, timeout, buf[0]).await;
-        dbm!().unregister_data_channel(&token).await;
-        res?;
+        launch_data_stream(stream, timeout).await?;
         return Ok(false);
     }
     let frame = stream.read_frame(Some(MAX_AUTH_FRAME_SIZE)).await?;
@@ -572,25 +562,25 @@ async fn handle_stream(
 }
 
 #[allow(clippy::cast_precision_loss)]
-#[allow(clippy::too_many_lines)]
-async fn launch_data_stream(
-    mut stream: SStream,
-    token: Token,
-    addr: SocketAddr,
-    timeout: Duration,
-    freq: u8,
-) -> Result<(), Error> {
+async fn launch_data_stream(mut stream: SStream, timeout: Duration) -> Result<(), Error> {
+    let mut buf: [u8; 32] = [0; 32];
+    let op_start = Instant::now();
+    stream.read(&mut buf).await?;
+    let token = Token::from(buf);
+    let mut buf: [u8; 1] = [0];
+    stream
+        .read_with_timeout(&mut buf, reduce_timeout(timeout, op_start))
+        .await?;
     let (tx, rx) = async_channel::bounded(psrt::pubsub::get_data_queue_size());
-    let latency_warn = psrt::pubsub::get_latency_warn();
     {
-        match dbm!().register_data_channel(&token, tx).await {
+        match dbm!().register_data_channel(&token, tx) {
             Ok((channel, client)) => {
                 respond_ok!(stream);
-                let beacon_freq = u64::from(freq) * 1000 / 2;
+                let beacon_freq = u64::from(buf[0]) * 1000 / 2;
                 trace!(
                     "client {} reported timeout: {}, setting beacon freq to {} ms",
                     token,
-                    freq,
+                    buf[0],
                     beacon_freq
                 );
                 let beacon_interval = Duration::from_millis(beacon_freq);
@@ -599,7 +589,6 @@ async fn launch_data_stream(
                     frame: vec![OP_NOP],
                     data: None,
                 });
-                let username = format_login!(client.login()).to_owned();
                 let pinger_fut = tokio::spawn(async move {
                     loop {
                         time::sleep(beacon_interval).await;
@@ -607,71 +596,25 @@ async fn launch_data_stream(
                             break;
                         }
                     }
-                    Ok(())
                 });
                 client.register_task(pinger_fut);
+                let username = format_login!(client.login()).to_owned();
+                let addr = client.addr();
                 let data_fut = tokio::spawn(async move {
-                    macro_rules! eof_is_ok {
-                        ($result: expr) => {
-                            if let Err(e) = $result {
-                                if e.kind() == psrt::ErrorKind::Eof {
-                                    return Ok(());
-                                }
-                                return Err(e.into());
-                            }
-                        };
+                    if let Err(e) = handle_data_stream(
+                        stream,
+                        &token,
+                        rx,
+                        timeout,
+                        beacon_interval,
+                        &username,
+                        addr,
+                    )
+                    .await
+                    {
+                        error!("data stream {}@{} error {}", username, addr, e);
+                        dbm!().unregister_data_channel(&token);
                     }
-                    let mut last_command = Instant::now();
-                    while let Ok(message) = rx.recv().await {
-                        if message.frame[0] == OP_NOP {
-                            if last_command.elapsed() < beacon_interval {
-                                continue;
-                            }
-                            eof_is_ok!(stream.write(&[OP_NOP]).await);
-                        } else {
-                            trace!("Sending message_frame to {}", token);
-                            let op_start = Instant::now();
-                            eof_is_ok!(stream.write(&*message.frame).await);
-                            if let Some(data) = message.data.as_ref() {
-                                eof_is_ok!(
-                                    stream
-                                        .write_with_timeout(data, reduce_timeout(timeout, op_start))
-                                        .await
-                                );
-                            }
-                            if let Some(timestamp) = message.timestamp {
-                                #[allow(clippy::cast_possible_truncation)]
-                                let latency_mks = ((now_ns() - timestamp) / 1000) as u32;
-                                {
-                                    stats_counters!().count_sent_bytes(
-                                        (message.frame.len()
-                                            + message.data.as_ref().map_or(0, |v| v.len()))
-                                            as u64,
-                                        latency_mks,
-                                    );
-                                };
-                                trace!("latency: {} \u{3bc}s", latency_mks);
-                                if latency_mks > latency_warn {
-                                    warn!(
-                                        "WARNING: high latency: {} \u{3bc}s topic {} ({}@{})",
-                                        latency_mks,
-                                        // will not panic as the topic is already verified
-                                        std::str::from_utf8(
-                                            message.frame[6..]
-                                                .splitn(2, |n| *n == 0)
-                                                .next()
-                                                .unwrap()
-                                        )
-                                        .unwrap(),
-                                        username,
-                                        addr
-                                    );
-                                }
-                            }
-                        }
-                        last_command = Instant::now();
-                    }
-                    Ok(())
                 });
                 client.register_task(data_fut);
             }
@@ -680,6 +623,74 @@ async fn launch_data_stream(
                 return Err(e);
             }
         };
+    }
+    Ok(())
+}
+
+async fn handle_data_stream(
+    mut stream: SStream,
+    token: &Token,
+    rx: async_channel::Receiver<Arc<MessageFrame>>,
+    timeout: Duration,
+    beacon_interval: Duration,
+    username: &str,
+    addr: SocketAddr,
+) -> Result<(), Error> {
+    macro_rules! eof_is_ok {
+        ($result: expr) => {
+            if let Err(e) = $result {
+                if e.kind() == psrt::ErrorKind::Eof {
+                    return Ok(());
+                }
+                return Err(e.into());
+            }
+        };
+    }
+    let latency_warn = psrt::pubsub::get_latency_warn();
+    let mut last_command = Instant::now();
+    while let Ok(message) = rx.recv().await {
+        if message.frame[0] == OP_NOP {
+            if last_command.elapsed() < beacon_interval {
+                continue;
+            }
+            eof_is_ok!(stream.write(&[OP_NOP]).await);
+        } else {
+            trace!("Sending message_frame to {}", token);
+            let op_start = Instant::now();
+            eof_is_ok!(stream.write(&*message.frame).await);
+            if let Some(data) = message.data.as_ref() {
+                eof_is_ok!(
+                    stream
+                        .write_with_timeout(data, reduce_timeout(timeout, op_start))
+                        .await
+                );
+            }
+            if let Some(timestamp) = message.timestamp {
+                #[allow(clippy::cast_possible_truncation)]
+                let latency_mks = ((now_ns() - timestamp) / 1000) as u32;
+                {
+                    stats_counters!().count_sent_bytes(
+                        (message.frame.len() + message.data.as_ref().map_or(0, |v| v.len())) as u64,
+                        latency_mks,
+                    );
+                };
+                trace!("latency: {} \u{3bc}s", latency_mks);
+                if latency_mks > latency_warn {
+                    warn!(
+                        "WARNING: high latency: {} \u{3bc}s topic {} ({}@{})",
+                        latency_mks,
+                        // will not panic as the topic is already verified
+                        std::str::from_utf8(
+                            message.frame[6..].splitn(2, |n| *n == 0).next().unwrap()
+                        )
+                        .unwrap(),
+                        username,
+                        addr
+                    );
+                }
+            }
+        }
+        last_command = Instant::now();
     }
     Ok(())
 }

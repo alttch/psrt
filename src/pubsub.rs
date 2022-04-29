@@ -52,7 +52,7 @@ pub struct ServerClientData {
     addr: SocketAddr,
     token: Token,
     data_channel: Mutex<Option<async_channel::Sender<Arc<MessageFrame>>>>,
-    tasks: Mutex<Vec<JoinHandle<Result<(), Error>>>>,
+    tasks: Mutex<Vec<JoinHandle<()>>>,
 }
 
 impl ServerClientData {
@@ -88,7 +88,7 @@ impl ServerClientData {
     /// # Panics
     ///
     /// Will panic if the mutex is poisoned
-    pub fn register_task(&self, task: JoinHandle<Result<(), Error>>) {
+    pub fn register_task(&self, task: JoinHandle<()>) {
         self.tasks.lock().unwrap().push(task);
     }
 }
@@ -168,7 +168,7 @@ impl ServerClientDB {
     /// # Panics
     ///
     /// Will panic if the mutex is poisoned
-    pub async fn register_data_channel(
+    pub fn register_data_channel(
         &mut self,
         token: &Token,
         channel: async_channel::Sender<Arc<MessageFrame>>,
@@ -190,7 +190,7 @@ impl ServerClientDB {
     /// # Panics
     ///
     /// Will panic if the mutex is poisoned
-    pub async fn unregister_data_channel(&mut self, token: &Token) {
+    pub fn unregister_data_channel(&mut self, token: &Token) {
         if let Some(ref mut client) = self.clients_by_token.get_mut(token) {
             let mut dc = client.data_channel.lock().unwrap();
             dc.take();
