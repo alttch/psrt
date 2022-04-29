@@ -8,8 +8,8 @@ use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 use std::sync::atomic;
 use std::sync::Arc;
+use std::sync::Mutex;
 use submap::SubMap;
-use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
 pub const TOPIC_INVALID_SYMBOLS: &[char] = &['#', '+'];
@@ -51,14 +51,21 @@ pub struct ServerClientData {
     login: String,
     addr: SocketAddr,
     token: Token,
-    pub data_channel: RwLock<Option<async_channel::Sender<Arc<MessageFrame>>>>,
-    pub tasks: RwLock<Vec<JoinHandle<Result<(), Error>>>>,
+    data_channel: Mutex<Option<async_channel::Sender<Arc<MessageFrame>>>>,
+    tasks: Mutex<Vec<JoinHandle<Result<(), Error>>>>,
 }
 
 impl ServerClientData {
     #[inline]
     pub fn token_as_bytes(&self) -> &[u8] {
         self.token.as_bytes()
+    }
+    /// # Panics
+    ///
+    /// Will panic if the mutex is poisoned
+    #[inline]
+    pub fn data_channel(&self) -> Option<async_channel::Sender<Arc<MessageFrame>>> {
+        self.data_channel.lock().unwrap().clone()
     }
     #[inline]
     pub fn login(&self) -> &str {
@@ -68,11 +75,27 @@ impl ServerClientData {
     pub fn addr(&self) -> SocketAddr {
         self.addr
     }
-    pub async fn abort_tasks(&self) {
-        let mut tasks = self.tasks.write().await;
-        while let Some(task) = tasks.pop() {
+    /// # Panics
+    ///
+    /// Will panic if the mutex is poisoned
+    pub fn abort_tasks(&self) {
+        let mut tasks = self.tasks.lock().unwrap();
+        for task in tasks.iter() {
             task.abort();
         }
+        tasks.clear();
+    }
+    /// # Panics
+    ///
+    /// Will panic if the mutex is poisoned
+    pub fn register_task(&self, task: JoinHandle<Result<(), Error>>) {
+        self.tasks.lock().unwrap().push(task);
+    }
+}
+
+impl Drop for ServerClientData {
+    fn drop(&mut self) {
+        self.abort_tasks();
     }
 }
 
@@ -141,13 +164,17 @@ impl ServerClientDB {
     /// # Errors
     ///
     /// Will return Err if the token is not registered
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the mutex is poisoned
     pub async fn register_data_channel(
         &mut self,
         token: &Token,
         channel: async_channel::Sender<Arc<MessageFrame>>,
     ) -> Result<(async_channel::Sender<Arc<MessageFrame>>, ServerClient), Error> {
         if let Some(ref mut client) = self.clients_by_token.get_mut(token) {
-            let mut dc = client.data_channel.write().await;
+            let mut dc = client.data_channel.lock().unwrap();
             if dc.is_some() {
                 trace!("duplicate data channel request for {}, refusing", token);
                 return Err(Error::access("Data channel is already registered"));
@@ -160,10 +187,12 @@ impl ServerClientDB {
             Err(Error::access("data channel access denied"))
         }
     }
-
+    /// # Panics
+    ///
+    /// Will panic if the mutex is poisoned
     pub async fn unregister_data_channel(&mut self, token: &Token) {
         if let Some(ref mut client) = self.clients_by_token.get_mut(token) {
-            let mut dc = client.data_channel.write().await;
+            let mut dc = client.data_channel.lock().unwrap();
             dc.take();
         }
     }
@@ -180,8 +209,8 @@ impl ServerClientDB {
                 token: Token::new(),
                 login: login.to_owned(),
                 addr,
-                data_channel: RwLock::new(None),
-                tasks: RwLock::new(Vec::new()),
+                data_channel: <_>::default(),
+                tasks: <_>::default(),
             });
             if self.submap.register_client(&client) {
                 self.clients_by_token
@@ -215,6 +244,7 @@ impl ServerClientDB {
         trace!("client unsubscribed: {} from {}", client, topic);
         Ok(())
     }
+    #[allow(clippy::mutable_key_type)]
     pub fn get_subscribers(&self, topic: &str) -> HashSet<ServerClient> {
         trace!("getting subscribers for topic: {}", topic);
         self.submap.get_subscribers(topic)

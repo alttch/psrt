@@ -1,18 +1,34 @@
 #[macro_use]
 extern crate lazy_static;
-
-use tokio::io::AsyncReadExt;
-use tokio::net::{TcpListener, TcpStream, UdpSocket};
-use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::{Mutex, RwLock};
-use tokio::time;
-
-use rustls_pemfile::{certs, rsa_private_keys};
-use tokio_rustls::rustls::{self, Certificate, PrivateKey};
-use tokio_rustls::TlsAcceptor;
-
+use chrono::prelude::*;
+use clap::Clap;
+use colored::Colorize;
+use log::{error, info, trace, warn};
+use log::{Level, LevelFilter};
+use psrt::acl::{self, ACL_DB};
 use psrt::comm::SStream;
-
+use psrt::pubsub::now_ns;
+use psrt::pubsub::MessageFrame;
+use psrt::pubsub::TOPIC_INVALID_SYMBOLS;
+use psrt::pubsub::{ServerClient, ServerClientDB, ServerClientDBStats};
+use psrt::reduce_timeout;
+use psrt::token::Token;
+use psrt::Error;
+use psrt::COMM_INSECURE;
+use psrt::COMM_TLS;
+use psrt::DEFAULT_PRIORITY;
+use psrt::OP_BYE;
+use psrt::OP_NOP;
+use psrt::OP_PUBLISH;
+use psrt::OP_PUBLISH_REPL;
+use psrt::OP_SUBSCRIBE;
+use psrt::OP_UNSUBSCRIBE;
+use psrt::RESPONSE_ERR;
+use psrt::RESPONSE_ERR_ACCESS;
+use psrt::RESPONSE_OK;
+use psrt::{CONTROL_HEADER, DATA_HEADER};
+use rustls_pemfile::{certs, rsa_private_keys};
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "cluster")]
 use std::collections::BTreeMap;
 use std::collections::HashSet;
@@ -21,41 +37,13 @@ use std::path::Path;
 use std::sync::atomic;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-
-use psrt::pubsub::{ServerClient, ServerClientDB, ServerClientDBStats};
-use psrt::reduce_timeout;
-use psrt::token::Token;
-
-use psrt::RESPONSE_ERR;
-use psrt::RESPONSE_ERR_ACCESS;
-use psrt::RESPONSE_OK;
-
-use psrt::DEFAULT_PRIORITY;
-
-use psrt::Error;
-use psrt::OP_BYE;
-use psrt::OP_NOP;
-use psrt::OP_PUBLISH;
-use psrt::OP_PUBLISH_REPL;
-use psrt::OP_SUBSCRIBE;
-use psrt::OP_UNSUBSCRIBE;
-
-use psrt::{CONTROL_HEADER, DATA_HEADER};
-
-use psrt::acl::{self, ACL_DB};
-use psrt::COMM_INSECURE;
-use psrt::COMM_TLS;
-
-use psrt::pubsub::now_ns;
-use psrt::pubsub::MessageFrame;
-use psrt::pubsub::TOPIC_INVALID_SYMBOLS;
-
-use chrono::prelude::*;
-use clap::Clap;
-use colored::Colorize;
-use log::{error, info, trace, warn};
-use log::{Level, LevelFilter};
-use serde::{Deserialize, Serialize};
+use tokio::io::AsyncReadExt;
+use tokio::net::{TcpListener, TcpStream, UdpSocket};
+use tokio::signal::unix::{signal, SignalKind};
+use tokio::sync::{Mutex, RwLock};
+use tokio::time;
+use tokio_rustls::rustls::{self, Certificate, PrivateKey};
+use tokio_rustls::TlsAcceptor;
 
 static ERR_INVALID_DATA_BLOCK: &str = "Invalid data block";
 const MAX_AUTH_FRAME_SIZE: usize = 1024;
@@ -193,6 +181,7 @@ enum StreamType {
 }
 
 #[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::mutable_key_type)]
 async fn push_to_subscribers(
     subscribers: &HashSet<ServerClient>,
     priority: u8,
@@ -212,7 +201,7 @@ async fn push_to_subscribers(
         data: Some(message),
     });
     for s in subscribers {
-        let c = s.data_channel.read().await;
+        let c = s.data_channel();
         if let Some(dc) = c.as_ref() {
             if let Err(e) = dc.send(message.clone()).await {
                 error!("{} ({}@{})", e, s.login(), s.addr());
@@ -222,6 +211,7 @@ async fn push_to_subscribers(
 }
 
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::mutable_key_type)]
 async fn process_control(
     mut stream: SStream,
     client: ServerClient,
@@ -575,7 +565,7 @@ async fn handle_stream(
     let result = process_control(stream, client.clone(), addr, acl, timeout).await;
     {
         dbm!().unregister_client(&client);
-        client.abort_tasks().await;
+        client.abort_tasks();
     }
     result?;
     Ok(true)
@@ -609,7 +599,6 @@ async fn launch_data_stream(
                     frame: vec![OP_NOP],
                     data: None,
                 });
-                let mut tasks = client.tasks.write().await;
                 let username = format_login!(client.login()).to_owned();
                 let pinger_fut = tokio::spawn(async move {
                     loop {
@@ -620,7 +609,7 @@ async fn launch_data_stream(
                     }
                     Ok(())
                 });
-                tasks.push(pinger_fut);
+                client.register_task(pinger_fut);
                 let data_fut = tokio::spawn(async move {
                     macro_rules! eof_is_ok {
                         ($result: expr) => {
@@ -684,7 +673,7 @@ async fn launch_data_stream(
                     }
                     Ok(())
                 });
-                tasks.push(data_fut);
+                client.register_task(data_fut);
             }
             Err(e) => {
                 respond_err!(stream);
@@ -902,6 +891,7 @@ async fn run_server(
     }
 }
 
+#[allow(clippy::mutable_key_type)]
 async fn process_udp_block(
     login: &str,
     password: Option<&str>,
