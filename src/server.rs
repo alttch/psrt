@@ -80,19 +80,19 @@ macro_rules! acl_db {
 
 macro_rules! dbm {
     () => {
-        DB.write().await
+        DB.write().unwrap()
     };
 }
 
 macro_rules! db {
     () => {
-        DB.read().await
+        DB.read().unwrap()
     };
 }
 
 macro_rules! stats_counters {
     () => {
-        STATS_COUNTERS.write().await
+        STATS_COUNTERS.write().unwrap()
     };
 }
 
@@ -107,12 +107,14 @@ macro_rules! format_login {
 }
 
 lazy_static! {
-    static ref DB: RwLock<ServerClientDB> = RwLock::new(<_>::default());
-    static ref PASSWORD_DB: RwLock<psrt::passwords::Passwords> = RwLock::new(<_>::default());
-    static ref KEY_DB: RwLock<psrt::keys::Keys> = RwLock::new(<_>::default());
-    static ref STATS_COUNTERS: RwLock<Counters> = RwLock::new(Counters::new());
-    static ref PID_FILE: Mutex<Option<String>> = Mutex::new(None);
-    static ref HOST_NAME: RwLock<String> = RwLock::new("unknown".to_owned());
+    // keep async as internal functions have async/io
+    static ref PASSWORD_DB: RwLock<psrt::passwords::Passwords> = <_>::default();
+    static ref KEY_DB: RwLock<psrt::keys::Keys> = <_>::default();
+    static ref DB: std::sync::RwLock<ServerClientDB> = <_>::default();
+    static ref STATS_COUNTERS: std::sync::RwLock<Counters> = <_>::default();
+    // keep async as it's used to block multiple term handlers
+    static ref PID_FILE: Mutex<Option<String>> = <_>::default();
+    static ref HOST_NAME: std::sync::Mutex<String> = std::sync::Mutex::new("unknown".to_owned());
     static ref UPTIME: Instant = Instant::now();
 }
 
@@ -155,7 +157,7 @@ pub struct ServerStatus {
     cluster: Option<bool>,
 }
 
-pub async fn get_status() -> ServerStatus {
+async fn get_status() -> ServerStatus {
     let counters = { stats_counters!().clone() };
     let clients = { db!().get_stats() };
     #[cfg(feature = "cluster")]
@@ -167,7 +169,7 @@ pub async fn get_status() -> ServerStatus {
         uptime: UPTIME.elapsed().as_secs(),
         version: psrt::VERSION.to_owned(),
         data_queue_size: psrt::pubsub::get_data_queue_size(),
-        host: HOST_NAME.read().await.clone(),
+        host: HOST_NAME.lock().unwrap().clone(),
         counters,
         clients,
         cluster,
@@ -573,7 +575,8 @@ async fn launch_data_stream(mut stream: SStream, timeout: Duration) -> Result<()
         .await?;
     let (tx, rx) = async_channel::bounded(psrt::pubsub::get_data_queue_size());
     {
-        match dbm!().register_data_channel(&token, tx) {
+        let res = { dbm!().register_data_channel(&token, tx) };
+        match res {
             Ok((channel, client)) => {
                 respond_ok!(stream);
                 let beacon_freq = u64::from(buf[0]) * 1000 / 2;
@@ -810,7 +813,7 @@ async fn run_server(
     let pid = std::process::id().to_string();
     if let Ok(name) = hostname::get() {
         if let Some(name) = name.to_str() {
-            *HOST_NAME.try_write().unwrap() = name.to_owned();
+            *HOST_NAME.lock().unwrap() = name.to_owned();
         }
     }
     info!(
@@ -1305,7 +1308,7 @@ mod stats {
     }
 
     use serde::Serialize;
-    #[derive(Serialize, Debug, Clone)]
+    #[derive(Serialize, Debug, Clone, Default)]
     pub struct Counters {
         // counters
         c_sub_ops: u64,
@@ -1317,16 +1320,6 @@ mod stats {
     }
 
     impl Counters {
-        pub fn new() -> Self {
-            Self {
-                c_sub_ops: 0,
-                c_pub_messages: 0,
-                c_pub_bytes: 0,
-                c_sent_messages: 0,
-                c_sent_bytes: 0,
-                c_sent_latency: 0,
-            }
-        }
         #[inline]
         pub fn count_sub_ops(&mut self) {
             self.c_sub_ops += 1;
