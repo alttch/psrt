@@ -206,6 +206,9 @@ async fn push_to_subscribers(
     for s in subscribers {
         let c = s.data_channel();
         if let Some(dc) = c.as_ref() {
+            if dc.is_full() {
+                warn!("queue is full ({}@{})", s.login(), s.addr());
+            }
             if let Err(e) = dc.send(message.clone()).await {
                 error!("{} ({}@{})", e, s.login(), s.addr());
             }
