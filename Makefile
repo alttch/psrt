@@ -30,11 +30,9 @@ pkg:
 	rm -rf _build
 	mkdir -p _build
 	cross build --target x86_64-unknown-linux-musl --release --features server,cli
-	cross build --target i686-unknown-linux-musl --release --features server,cli
 	cross build --target arm-unknown-linux-musleabihf --release --features server,cli
 	cross build --target aarch64-unknown-linux-musl --release --features server,cli
 	cd target/x86_64-unknown-linux-musl/release && tar czvf ../../../_build/psrt-${VERSION}-x86_64-musl.tar.gz psrtd psrt-cli
-	cd target/i686-unknown-linux-musl/release && tar czvf ../../../_build/psrt-${VERSION}-i686-musl.tar.gz psrtd psrt-cli
 	cd target/arm-unknown-linux-musleabihf/release && tar czvf ../../../_build/psrt-${VERSION}-arm-musleabihf.tar.gz psrtd psrt-cli
 	cd target/aarch64-unknown-linux-musl/release && \
 			aarch64-linux-gnu-strip psrtd && \
@@ -47,7 +45,6 @@ debian-pkg:
 pub-pkg:
 	cd _build && echo "" | gh release create v$(VERSION) -t "v$(VERSION)" \
 			psrt-${VERSION}-arm-musleabihf.tar.gz \
-			psrt-${VERSION}-i686-musl.tar.gz \
 			psrt-${VERSION}-x86_64-musl.tar.gz \
 			psrt-${VERSION}-aarch64-musl.tar.gz \
 			psrt-${VERSION}-amd64.deb
