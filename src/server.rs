@@ -157,6 +157,7 @@ pub struct ServerStatus {
     cluster: Option<bool>,
 }
 
+#[allow(clippy::unused_async)]
 async fn get_status() -> ServerStatus {
     let counters = { stats_counters!().clone() };
     let clients = { db!().get_stats() };

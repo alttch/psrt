@@ -50,7 +50,7 @@ pub struct MessageFrame {
 pub struct ServerClientData {
     login: String,
     addr: SocketAddr,
-    token: Token,
+    token: Arc<Token>,
     data_channel: Mutex<Option<async_channel::Sender<Arc<MessageFrame>>>>,
     tasks: Mutex<Vec<JoinHandle<()>>>,
 }
@@ -130,7 +130,7 @@ pub struct ServerClientDBStats {
 #[derive(Debug)]
 pub struct ServerClientDB {
     submap: SubMap<ServerClient>,
-    clients_by_token: HashMap<Token, ServerClient>,
+    clients_by_token: HashMap<Arc<Token>, ServerClient>,
 }
 
 impl Default for ServerClientDB {
@@ -206,7 +206,7 @@ impl ServerClientDB {
         trace!("registering new client");
         loop {
             let client = Arc::new(ServerClientData {
-                token: Token::new(),
+                token: <_>::default(),
                 login: login.to_owned(),
                 addr,
                 data_channel: <_>::default(),
