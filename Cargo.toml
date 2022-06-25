@@ -81,3 +81,9 @@ server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork"
     "jemallocator"]
 crypto = ["aes-gcm", "rand"]
 std-alloc = []
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+
