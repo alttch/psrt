@@ -1192,7 +1192,6 @@ fn main() {
         let mut configs = Vec::new();
         while !cfgs.is_empty() {
             let mut c = cfgs.remove(0);
-            #[allow(mutable_borrow_reservation_conflict)]
             if let Some(tls_ca) = c.tls_ca() {
                 c.update_tls_ca(std::fs::read_to_string(format_path!(tls_ca)).unwrap());
             }
