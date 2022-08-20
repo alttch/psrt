@@ -31,7 +31,7 @@ use rustls_pemfile::{certs, rsa_private_keys};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "cluster")]
 use std::collections::BTreeMap;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::atomic;
@@ -186,7 +186,7 @@ enum StreamType {
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::mutable_key_type)]
 async fn push_to_subscribers(
-    subscribers: &HashSet<ServerClient>,
+    subscribers: &BTreeSet<ServerClient>,
     priority: u8,
     topic: &str,
     message: Arc<Vec<u8>>,

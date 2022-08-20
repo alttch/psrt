@@ -2,9 +2,8 @@ use crate::token::Token;
 use crate::Error;
 use log::trace;
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::fmt;
-use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 use std::sync::atomic;
 use std::sync::Arc;
@@ -49,6 +48,7 @@ pub struct MessageFrame {
 #[derive(Debug)]
 pub struct ServerClientData {
     login: String,
+    digest: submap::digest::Sha256Digest,
     addr: SocketAddr,
     token: Arc<Token>,
     data_channel: Mutex<Option<async_channel::Sender<Arc<MessageFrame>>>>,
@@ -105,7 +105,21 @@ impl Drop for ServerClientData {
 
 impl PartialEq for ServerClientData {
     fn eq(&self, other: &Self) -> bool {
-        self.token == other.token
+        self.digest == other.digest
+    }
+}
+
+impl Eq for ServerClientData {}
+
+impl Ord for ServerClientData {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.digest.cmp(&other.digest)
+    }
+}
+
+impl PartialOrd for ServerClientData {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -115,13 +129,11 @@ impl fmt::Display for ServerClientData {
     }
 }
 
-impl Eq for ServerClientData {}
-
-impl Hash for ServerClientData {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.token.hash(state);
-    }
-}
+//impl Hash for ServerClientData {
+//fn hash<H: Hasher>(&self, state: &mut H) {
+//self.token.hash(state);
+//}
+//}
 
 pub type ServerClient = Arc<ServerClientData>;
 
@@ -209,8 +221,11 @@ impl ServerClientDB {
     pub fn register_client(&mut self, login: &str, addr: SocketAddr) -> ServerClient {
         trace!("registering new client");
         loop {
+            let token: Token = <_>::default();
+            let digest = submap::digest::sha256(&token);
             let client = Arc::new(ServerClientData {
-                token: <_>::default(),
+                token: Arc::new(token),
+                digest,
                 login: login.to_owned(),
                 addr,
                 data_channel: <_>::default(),
@@ -249,7 +264,7 @@ impl ServerClientDB {
         Ok(())
     }
     #[allow(clippy::mutable_key_type)]
-    pub fn get_subscribers(&self, topic: &str) -> HashSet<ServerClient> {
+    pub fn get_subscribers(&self, topic: &str) -> BTreeSet<ServerClient> {
         trace!("getting subscribers for topic: {}", topic);
         self.submap.get_subscribers(topic)
     }

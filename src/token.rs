@@ -12,6 +12,13 @@ impl fmt::Display for Token {
     }
 }
 
+impl AsRef<[u8]> for Token {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl Token {
     /// # Panics
     ///
