@@ -59,9 +59,9 @@ pub struct Acl {
     admin: bool,
     #[serde(default)]
     replicator: bool,
-    #[serde(rename = "sub")]
+    #[serde(default, rename = "sub")]
     read: Option<PathMaskList>,
-    #[serde(rename = "pub")]
+    #[serde(default, rename = "pub")]
     write: Option<PathMaskList>,
 }
 
