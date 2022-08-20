@@ -51,4 +51,4 @@ release-enterprise:
 	cd make-deb && \
 		./build.sh enterprise && \
 		gsutil cp -a public-read psrt-enterprise-${VERSION}-amd64.deb gs://pub.bma.ai/psrt-enterprise/
-	jks build get.eva-ics.com
+	jks build pub.bma.ai
