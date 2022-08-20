@@ -75,6 +75,7 @@ aes-gcm = { version = "0.9.4", optional = true }
 rand = { version = "0.8.4", optional = true }
 submap = { version = "0.2.2", features = ["digest"], optional = true }
 jemallocator = { version = "0.3.2", optional = true }
+parking_lot = "0.12.1"
 
 [features]
 cluster = []

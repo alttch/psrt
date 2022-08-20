@@ -1,13 +1,13 @@
 use crate::token::Token;
 use crate::Error;
 use log::trace;
+use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::{BTreeSet, HashMap};
 use std::fmt;
 use std::net::SocketAddr;
 use std::sync::atomic;
 use std::sync::Arc;
-use std::sync::Mutex;
 use submap::SubMap;
 use tokio::task::JoinHandle;
 
@@ -65,7 +65,7 @@ impl ServerClientData {
     /// Will panic if the mutex is poisoned
     #[inline]
     pub fn data_channel(&self) -> Option<async_channel::Sender<Arc<MessageFrame>>> {
-        self.data_channel.lock().unwrap().clone()
+        self.data_channel.lock().clone()
     }
     #[inline]
     pub fn token(&self) -> &Token {
@@ -83,7 +83,7 @@ impl ServerClientData {
     ///
     /// Will panic if the mutex is poisoned
     pub fn abort_tasks(&self) {
-        let mut tasks = self.tasks.lock().unwrap();
+        let mut tasks = self.tasks.lock();
         for task in tasks.iter() {
             task.abort();
         }
@@ -93,7 +93,7 @@ impl ServerClientData {
     ///
     /// Will panic if the mutex is poisoned
     pub fn register_task(&self, task: JoinHandle<()>) {
-        self.tasks.lock().unwrap().push(task);
+        self.tasks.lock().push(task);
     }
 }
 
@@ -190,7 +190,7 @@ impl ServerClientDB {
         channel: async_channel::Sender<Arc<MessageFrame>>,
     ) -> Result<(async_channel::Sender<Arc<MessageFrame>>, ServerClient), Error> {
         if let Some(client) = self.clients_by_token.get(token) {
-            let mut dc = client.data_channel.lock().unwrap();
+            let mut dc = client.data_channel.lock();
             if dc.is_some() {
                 trace!("duplicate data channel request for {}, refusing", token);
                 return Err(Error::access("Data channel is already registered"));
@@ -208,7 +208,7 @@ impl ServerClientDB {
     /// Will panic if the mutex is poisoned
     pub fn unregister_data_channel(&self, token: &Token) {
         if let Some(client) = self.clients_by_token.get(token) {
-            let mut dc = client.data_channel.lock().unwrap();
+            let mut dc = client.data_channel.lock();
             dc.take();
         }
     }
