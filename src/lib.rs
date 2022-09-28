@@ -1,4 +1,4 @@
-//! PubSubRT server, cli and client library
+//! PSRT server, cli and client library
 //!
 //! <https://github.com/alttch/psrt>
 //!

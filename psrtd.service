@@ -1,5 +1,5 @@
 [Unit]
-Description=PubSubRT
+Description=PSRT Server
 After=network.target
 
 [Service]
