@@ -1,4 +1,4 @@
-# PubSubRT - an industrial real-time pub/sub server
+# PSRT - an industrial real-time pub/sub server
 
 <img src="https://raw.githubusercontent.com/alttch/psrt/main/psrt-logo.png"
 width="100" />
@@ -16,8 +16,8 @@ unstable and clients must be authenticated. If you need a local-network
 or local-host solution with even lower latencies, higher speeds, more features,
 but zero security, try [ELBUS](https://github.com/alttch/elbus/).
 
-Topic subscriptions in PubSubRT are processed with B-tree algorithms, which
-allows the server to handle hundred thousands subscriptions without any speed
+Topic subscriptions in PSRT are processed with B-tree algorithms, which allows
+the server to handle hundred thousands subscriptions without any speed
 loss.
 
 ## Why not MQTT?
@@ -58,9 +58,9 @@ topic masks etc:
 
 ## About the repository
 
-This repository contains PubSubRT server, implementing PSRT (open-source
-version without the cluster module), command-line client and Rust client
-library. The cluster code is not open-source, but may be opened in the future
+This repository contains PSRT server, implementing PSRT (open-source version
+without the cluster module), command-line client and Rust client library. The
+cluster code is not open-source, but may be opened in the future
 as well.
 
 Other repositories:
@@ -106,7 +106,7 @@ using defaults.
 
 ## Authentication
 
-PubSubRT uses the standard *htpasswd* format, use any htpasswd-compatible tool
+PSRT uses the standard *htpasswd* format, use any htpasswd-compatible tool
 (with -B flag for bcrypt).
 
 Passwords file and ACL can be reloaded on-the-flow. Use either *kill -HUP
