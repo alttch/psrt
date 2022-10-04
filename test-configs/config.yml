@@ -8,7 +8,7 @@ server:
   data_queue: 1024
   max_topic_depth: 64
   # max topic length, for bulk requests - total request length + 1 byte per topic
-  max_topic_length: 1024
+  max_topic_length: 1000000
   # max pub frame size (topic + data, bytes)
   max_pub_size: 1100000
   pid_file: /tmp/psrtd.pid
