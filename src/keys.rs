@@ -1,10 +1,7 @@
-use std::collections::BTreeMap;
-
-use aes_gcm::aead::{Aead, NewAead};
-use aes_gcm::{Aes128Gcm, Aes256Gcm, Nonce};
-
 use crate::token::Token;
 use crate::Error;
+use openssl::symm;
+use std::collections::BTreeMap;
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 #[repr(u8)]
@@ -33,9 +30,23 @@ impl EncryptionType {
     }
 }
 
+#[inline]
+fn decrypt(cipher: symm::Cipher, key: &[u8], iv: &[u8], data: &[u8]) -> Result<Vec<u8>, Error> {
+    let digest_pos = data.len() - 16;
+    symm::decrypt_aead(
+        cipher,
+        key,
+        Some(iv),
+        &[],
+        &data[..digest_pos],
+        &data[digest_pos..],
+    )
+    .map_err(Into::into)
+}
+
 pub struct Key {
-    cipher_aes_128: Aes128Gcm,
-    cipher_aes_256: Aes256Gcm,
+    cipher_aes_128: Vec<u8>,
+    cipher_aes_256: Vec<u8>,
 }
 
 #[derive(Default)]
@@ -63,11 +74,9 @@ impl Keys {
                 match k.parse::<Token>() {
                     Ok(token) => {
                         if acl_db.has_acl(&login) {
-                            let aes_key_128 = aes_gcm::Key::from_slice(&token.as_bytes()[0..16]);
-                            let aes_key_256 = aes_gcm::Key::from_slice(token.as_bytes());
                             let key = Key {
-                                cipher_aes_128: Aes128Gcm::new(aes_key_128),
-                                cipher_aes_256: Aes256Gcm::new(aes_key_256),
+                                cipher_aes_128: token.as_bytes()[0..16].to_vec(),
+                                cipher_aes_256: token.as_bytes().to_vec(),
                             };
                             key_map.insert(login, key);
                         } else {
@@ -95,18 +104,24 @@ impl Keys {
         tp: EncryptionType,
     ) -> Result<Vec<u8>, Error> {
         if let Some(Some(key)) = self.keys.as_ref().map(|m| m.get(key_id)) {
-            if block.len() < 13 {
+            if block.len() < 29 {
                 return Err(Error::invalid_data("Invalid encrypted data"));
             }
             match tp {
-                EncryptionType::Aes128Gcm => key
-                    .cipher_aes_128
-                    .decrypt(Nonce::from_slice(&block[0..12]), &block[12..])
-                    .map_err(Into::into),
-                EncryptionType::Aes256Gcm => key
-                    .cipher_aes_256
-                    .decrypt(Nonce::from_slice(&block[0..12]), &block[12..])
-                    .map_err(Into::into),
+                EncryptionType::Aes128Gcm => decrypt(
+                    symm::Cipher::aes_128_gcm(),
+                    &key.cipher_aes_128,
+                    &block[0..12],
+                    &block[12..],
+                )
+                .map_err(Into::into),
+                EncryptionType::Aes256Gcm => decrypt(
+                    symm::Cipher::aes_256_gcm(),
+                    &key.cipher_aes_256,
+                    &block[0..12],
+                    &block[12..],
+                )
+                .map_err(Into::into),
                 EncryptionType::No => panic!("Attempt to decrypt unencrypted"),
             }
         } else {

@@ -155,6 +155,12 @@ impl From<tokio_native_tls::native_tls::Error> for Error {
     }
 }
 
+impl From<openssl::error::ErrorStack> for Error {
+    fn from(e: openssl::error::ErrorStack) -> Error {
+        Error::io(e)
+    }
+}
+
 impl From<serde_yaml::Error> for Error {
     fn from(e: serde_yaml::Error) -> Error {
         Error::invalid_data(e)
@@ -182,13 +188,6 @@ impl From<std::array::TryFromSliceError> for Error {
 impl From<hex::FromHexError> for Error {
     fn from(e: hex::FromHexError) -> Error {
         Error::invalid_data(e)
-    }
-}
-
-#[cfg(feature = "server")]
-impl From<aes_gcm::Error> for Error {
-    fn from(e: aes_gcm::Error) -> Error {
-        Error::access(format!("Unable to decrypt block: {}", e))
     }
 }
 

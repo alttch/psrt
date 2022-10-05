@@ -82,7 +82,7 @@ cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
     "term_size", "prettytable-rs", "num-format", "getch", "rand",
     "jemallocator"]
 server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork",
-    "hostname", "hyper", "serde_json", "syslog", "aes-gcm", "rand", "submap",
+    "hostname", "hyper", "serde_json", "syslog", "rand", "submap",
     "jemallocator"]
 crypto = ["aes-gcm", "rand"]
 std-alloc = []
