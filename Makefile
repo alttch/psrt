@@ -29,8 +29,8 @@ publish-cargo-crate:
 pkg:
 	rm -rf _build
 	mkdir -p _build
-	cross build --target x86_64-unknown-linux-musl --release --features server,cli
-	cross build --target aarch64-unknown-linux-musl --release --features server,cli
+	cross build --target x86_64-unknown-linux-musl --release --features server,cli,openssl-vendored
+	cross build --target aarch64-unknown-linux-musl --release --features server,cli,openssl-vendored
 	cd target/x86_64-unknown-linux-musl/release && tar czvf ../../../_build/psrt-${VERSION}-x86_64-musl.tar.gz psrtd psrt-cli
 	cd target/aarch64-unknown-linux-musl/release && \
 			aarch64-linux-gnu-strip psrtd && \
@@ -47,7 +47,7 @@ pub-pkg:
 			psrt-${VERSION}-amd64.deb
 
 release-enterprise:
-	cargo build --target x86_64-unknown-linux-musl --release --features server,cli,cluster
+	cargo build --target x86_64-unknown-linux-musl --release --features server,cli,cluster,openssl-vendored
 	cd make-deb && \
 		./build.sh enterprise && \
 		gsutil cp -a public-read psrt-enterprise-${VERSION}-amd64.deb gs://pub.bma.ai/psrt-enterprise/

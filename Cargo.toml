@@ -48,7 +48,7 @@ log = "0.4.14"
 hex = "0.4.2"
 nix = "0.25.0"
 tokio-native-tls = "0.3.0"
-openssl = { version = "0.10.42", features = ["vendored"] }
+openssl = "0.10.42"
 async-channel = "1.7.1"
 serde = { version =  "1.0.143", features = ["derive"] }
 serde_yaml = "0.8.26"
@@ -85,5 +85,5 @@ server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork"
     "hostname", "hyper", "serde_json", "syslog", "rand", "submap",
     "jemallocator"]
 crypto = ["aes-gcm", "rand"]
+openssl-vendored = ["openssl/vendored"]
 std-alloc = []
-
