@@ -15,7 +15,6 @@
 // TODO web sockets
 // TODO admin area
 // TODO keep subscribed topics as chunks
-use tokio_rustls::webpki;
 
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -150,6 +149,12 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<tokio_native_tls::native_tls::Error> for Error {
+    fn from(e: tokio_native_tls::native_tls::Error) -> Error {
+        Error::io(e)
+    }
+}
+
 impl From<serde_yaml::Error> for Error {
     fn from(e: serde_yaml::Error) -> Error {
         Error::invalid_data(e)
@@ -165,12 +170,6 @@ impl From<std::str::Utf8Error> for Error {
 impl From<tokio::time::error::Elapsed> for Error {
     fn from(e: tokio::time::error::Elapsed) -> Error {
         Error::timeout(e)
-    }
-}
-
-impl From<webpki::Error> for Error {
-    fn from(e: webpki::Error) -> Error {
-        Error::io(e)
     }
 }
 

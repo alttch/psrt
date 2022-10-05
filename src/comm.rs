@@ -5,12 +5,11 @@ use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time;
-use tokio_rustls::{client, server};
+use tokio_native_tls::TlsStream;
 
 enum Stream {
     Plain(Box<TcpStream>),
-    TlsServer(Box<server::TlsStream<TcpStream>>),
-    TlsClient(Box<client::TlsStream<TcpStream>>),
+    Tls(Box<TlsStream<TcpStream>>),
 }
 
 pub struct SStream {
@@ -25,15 +24,9 @@ impl SStream {
             timeout,
         }
     }
-    pub fn new_tls_server(stream: server::TlsStream<TcpStream>, timeout: Duration) -> Self {
+    pub fn new_tls(stream: TlsStream<TcpStream>, timeout: Duration) -> Self {
         Self {
-            stream: Stream::TlsServer(Box::new(stream)),
-            timeout,
-        }
-    }
-    pub fn new_tls_client(stream: client::TlsStream<TcpStream>, timeout: Duration) -> Self {
-        Self {
-            stream: Stream::TlsClient(Box::new(stream)),
+            stream: Stream::Tls(Box::new(stream)),
             timeout,
         }
     }
@@ -53,10 +46,7 @@ impl SStream {
             Stream::Plain(ref mut stream) => {
                 time::timeout(timeout, stream.write_all(buf)).await??;
             }
-            Stream::TlsServer(ref mut stream) => {
-                time::timeout(timeout, stream.write_all(buf)).await??;
-            }
-            Stream::TlsClient(ref mut stream) => {
+            Stream::Tls(ref mut stream) => {
                 time::timeout(timeout, stream.write_all(buf)).await??;
             }
         }
@@ -82,10 +72,7 @@ impl SStream {
             Stream::Plain(ref mut stream) => {
                 time::timeout(timeout, stream.read_exact(buf)).await??;
             }
-            Stream::TlsServer(ref mut stream) => {
-                time::timeout(timeout, stream.read_exact(buf)).await??;
-            }
-            Stream::TlsClient(ref mut stream) => {
+            Stream::Tls(ref mut stream) => {
                 time::timeout(timeout, stream.read_exact(buf)).await??;
             }
         }

@@ -27,7 +27,6 @@ use psrt::RESPONSE_ERR;
 use psrt::RESPONSE_ERR_ACCESS;
 use psrt::RESPONSE_OK;
 use psrt::{CONTROL_HEADER, DATA_HEADER};
-use rustls_pemfile::{certs, rsa_private_keys};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "cluster")]
 use std::collections::BTreeMap;
@@ -42,8 +41,7 @@ use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{Mutex, RwLock};
 use tokio::time;
-use tokio_rustls::rustls::{self, Certificate, PrivateKey};
-use tokio_rustls::TlsAcceptor;
+use tokio_native_tls::{native_tls, TlsAcceptor};
 
 static ERR_INVALID_DATA_BLOCK: &str = "Invalid data block";
 const MAX_AUTH_FRAME_SIZE: usize = 1024;
@@ -482,7 +480,7 @@ async fn init_stream(
         COMM_TLS => {
             if let Some(a) = acceptor {
                 info!("{} using TLS connection", addr);
-                SStream::new_tls_server(a.accept(client_stream).await?, timeout)
+                SStream::new_tls(a.accept(client_stream).await?, timeout)
             } else {
                 return Err(Error::io("TLS is not configured"));
             }
@@ -808,15 +806,20 @@ fn set_verbose_logger(filter: LevelFilter) {
         .unwrap();
 }
 
+#[allow(clippy::too_many_lines)]
 async fn run_server(
     config: &Config,
     timeout: Duration,
-    tls_config: Option<rustls::ServerConfig>,
+    tls_identity: Option<native_tls::Identity>,
     mut replication_configs: Option<Vec<psrt::client::Config>>,
     _license: Option<String>,
 ) -> Result<(), Error> {
     let allow_no_tls = config.proto.allow_no_tls;
-    let acceptor = tls_config.map(|c| TlsAcceptor::from(Arc::new(c)));
+    let acceptor = if let Some(identity) = tls_identity {
+        Some(TlsAcceptor::from(native_tls::TlsAcceptor::new(identity)?))
+    } else {
+        None
+    };
     info!("binding to: {}", config.proto.bind);
     let listener = TcpListener::bind(&config.proto.bind).await?;
     let pid = std::process::id().to_string();
@@ -1075,22 +1078,36 @@ macro_rules! handle_term_signal {
     };
 }
 
-fn load_certs(path: &str) -> Result<Vec<Certificate>, Error> {
-    certs(&mut std::io::BufReader::new(
-        std::fs::File::open(path)
-            .map_err(|e| Error::io(format!("Unable to open {}: {}", path, e)))?,
-    ))
-    .map_err(|_| Error::invalid_data("invalid cert"))
-    .map(|mut certs| certs.drain(..).map(Certificate).collect())
-}
-
-fn load_keys(path: &str) -> Result<Vec<PrivateKey>, Error> {
-    rsa_private_keys(&mut std::io::BufReader::new(
-        std::fs::File::open(path)
-            .map_err(|e| Error::io(format!("Unable to open {}: {}", path, e)))?,
-    ))
-    .map_err(|_| Error::invalid_data("invalid key"))
-    .map(|mut keys| keys.drain(..).map(PrivateKey).collect())
+fn generate_pkcs12(
+    name: &str,
+    cert: &[u8],
+    key: &[u8],
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let mut primary = Vec::new();
+    let mut chain = Vec::new();
+    let mut parse_primary = true;
+    for line in std::str::from_utf8(cert)?.lines() {
+        primary.push(line);
+        if parse_primary {
+            if line.contains("-END CERTIFICATE-") {
+                parse_primary = false;
+            }
+        } else {
+            chain.push(line);
+        }
+    }
+    let x509 = openssl::x509::X509::from_pem(primary.join("\r\n").as_bytes())?;
+    let mut stack = openssl::stack::Stack::new()?;
+    for cert in openssl::x509::X509::stack_from_pem(chain.join("\r\n").as_bytes())? {
+        stack.push(cert)?;
+    }
+    let key = openssl::pkey::PKey::from_rsa(openssl::rsa::Rsa::private_key_from_pem(key)?)?;
+    let mut builder = openssl::pkcs12::Pkcs12::builder();
+    builder.ca(stack);
+    builder
+        .build("", name, &key, &x509)?
+        .to_der()
+        .map_err(Into::into)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1164,25 +1181,25 @@ fn main() {
         };
     }
     let config: Config = serde_yaml::from_str(&cfg).unwrap();
-    let tls_key = config.proto.tls_key.clone();
-    let tls_config = if let Some(ref tls_cert) = config.proto.tls_cert {
-        let c = format_path!(tls_cert);
-        info!("loading TLS cert {}", c);
-        let key_path = format_path!(tls_key.as_ref().expect("TLS key not specified"));
-        let certs = load_certs(&c).unwrap();
-        info!("loading TLS key {}", key_path);
-        let mut keys = load_keys(&key_path).unwrap();
-        assert!(!certs.is_empty(), "Unable to load TLS certs");
-        assert!(!keys.is_empty(), "Unable to load TLS keys");
-        let tls_config = rustls::ServerConfig::builder()
-            .with_safe_defaults()
-            .with_no_client_auth()
-            .with_single_cert(certs, keys.remove(0))
-            .unwrap();
-        Some(tls_config)
-    } else {
-        None
-    };
+    let tls_identity: Option<native_tls::Identity> =
+        if let Some(ref tls_cert) = config.proto.tls_cert {
+            #[cfg(feature = "fips")]
+            openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140-2");
+            let cert_path = format_path!(tls_cert);
+            info!("loading TLS cert {}", cert_path);
+            let cert = std::fs::read(cert_path).expect("Unable to load TLS cert");
+            let key_path = format_path!(config
+                .proto
+                .tls_key
+                .as_ref()
+                .expect("TLS key not specified"));
+            info!("loading TLS key {}", key_path);
+            let key = std::fs::read(key_path).expect("Unable to load TLS key");
+            let pkcs12 = generate_pkcs12("psrt_server", &cert, &key).unwrap();
+            Some(native_tls::Identity::from_pkcs12(&pkcs12, "").unwrap())
+        } else {
+            None
+        };
     let timeout = Duration::from_secs_f64(config.proto.timeout);
     let replication_configs = config.cluster.as_ref().map(|c| {
         let fname = format_path!(c.config);
@@ -1279,7 +1296,8 @@ fn main() {
         if let Some(ref bind_stats) = config.server.bind_stats {
             stats::start(bind_stats).await;
         }
-        if let Err(e) = run_server(&config, timeout, tls_config, replication_configs, license).await
+        if let Err(e) =
+            run_server(&config, timeout, tls_identity, replication_configs, license).await
         {
             error!("{}", e);
             std::process::exit(1);

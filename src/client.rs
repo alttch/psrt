@@ -11,8 +11,7 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tokio::time;
 use tokio::time::sleep;
-use tokio_rustls::rustls::{self, OwnedTrustAnchor};
-use tokio_rustls::{webpki, TlsConnector};
+use tokio_native_tls::{native_tls, TlsConnector};
 
 use crate::comm::SStream;
 use crate::OP_BYE;
@@ -307,38 +306,12 @@ impl Client {
     pub async fn connect(config: &Config) -> Result<Self, Error> {
         trace!("config: {:?}", config);
         trace!("version: {}", crate::VERSION);
-        let tls_config = if config.tls {
-            let mut root_cert_store = rustls::RootCertStore::empty();
+        let tls_builder: Option<native_tls::TlsConnectorBuilder> = if config.tls {
+            let mut builder = native_tls::TlsConnector::builder();
             if let Some(ref ca) = config.tls_ca {
-                let mut pem = std::io::BufReader::new(ca.as_bytes());
-                let certs = rustls_pemfile::certs(&mut pem)?;
-                let mut trust_anchors = Vec::new();
-                for cert in certs {
-                    let ta = webpki::TrustAnchor::try_from_cert_der(&cert[..])?;
-                    trust_anchors.push(OwnedTrustAnchor::from_subject_spki_name_constraints(
-                        ta.subject,
-                        ta.spki,
-                        ta.name_constraints,
-                    ));
-                }
-                root_cert_store.add_server_trust_anchors(trust_anchors.iter().map(Clone::clone));
-            } else {
-                root_cert_store.add_server_trust_anchors(
-                    webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
-                        OwnedTrustAnchor::from_subject_spki_name_constraints(
-                            ta.subject,
-                            ta.spki,
-                            ta.name_constraints,
-                        )
-                    }),
-                );
+                builder.add_root_certificate(native_tls::Certificate::from_pem(ca.as_bytes())?);
             }
-            Some(
-                rustls::ClientConfig::builder()
-                    .with_safe_defaults()
-                    .with_root_certificates(root_cert_store)
-                    .with_no_client_auth(),
-            )
+            Some(builder)
         } else {
             None
         };
@@ -357,7 +330,7 @@ impl Client {
         let mut greeting = Vec::new();
         greeting.extend(crate::CONTROL_HEADER);
         // switch to TLS if required
-        let mut control_stream = if let Some(cfg) = tls_config.clone() {
+        let mut control_stream = if let Some(ref builder) = tls_builder {
             greeting.push(COMM_TLS);
             trace!("Setting up TLS control connection");
             time::timeout(
@@ -365,10 +338,11 @@ impl Client {
                 c_control_stream.write_all(&greeting),
             )
             .await??;
-            let connector = TlsConnector::from(Arc::new(cfg));
-            let domain = rustls::ServerName::try_from(path_domain)
-                .map_err(|e| Error::invalid_data(format!("invalid domain: {:?}", e)))?;
-            SStream::new_tls_client(connector.connect(domain, c_control_stream).await?, timeout)
+            let connector = TlsConnector::from(builder.build()?);
+            SStream::new_tls(
+                connector.connect(path_domain, c_control_stream).await?,
+                timeout,
+            )
         } else {
             greeting.push(COMM_INSECURE);
             trace!("Setting up insecure control connection");
@@ -434,7 +408,7 @@ impl Client {
             let mut greeting = Vec::new();
             greeting.extend(crate::DATA_HEADER);
             // switch data stream to TLS if required
-            let mut data_stream = if let Some(cfg) = tls_config {
+            let mut data_stream = if let Some(ref builder) = tls_builder {
                 greeting.push(COMM_TLS);
                 trace!("Setting up TLS data connection");
                 time::timeout(
@@ -442,10 +416,11 @@ impl Client {
                     c_data_stream.write_all(&greeting),
                 )
                 .await??;
-                let connector = TlsConnector::from(Arc::new(cfg));
-                let domain = rustls::ServerName::try_from(path_domain)
-                    .map_err(|e| Error::invalid_data(format!("invalid domain: {:?}", e)))?;
-                SStream::new_tls_client(connector.connect(domain, c_data_stream).await?, timeout)
+                let connector = TlsConnector::from(builder.build()?);
+                SStream::new_tls(
+                    connector.connect(path_domain, c_data_stream).await?,
+                    timeout,
+                )
             } else {
                 greeting.push(COMM_INSECURE);
                 trace!("Setting up insecure data connection");
