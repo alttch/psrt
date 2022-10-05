@@ -361,10 +361,6 @@ async fn main() {
     } else {
         None
     };
-    #[cfg(feature = "fips")]
-    if opts.tls {
-        openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140-2");
-    }
     let mut config = client::Config::new(&opts.path)
         .set_auth(&user, &password)
         .set_queue_size(queue_size)

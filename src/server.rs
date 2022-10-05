@@ -729,6 +729,8 @@ struct ConfigProto {
     timeout: f64,
     tls_cert: Option<String>,
     tls_key: Option<String>,
+    #[serde(default)]
+    fips: bool,
     allow_no_tls: bool,
 }
 
@@ -1183,8 +1185,9 @@ fn main() {
     let config: Config = serde_yaml::from_str(&cfg).unwrap();
     let tls_identity: Option<native_tls::Identity> =
         if let Some(ref tls_cert) = config.proto.tls_cert {
-            #[cfg(feature = "fips")]
-            openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140-2");
+            if config.proto.fips {
+                openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140-2");
+            }
             let cert_path = format_path!(tls_cert);
             info!("loading TLS cert {}", cert_path);
             let cert = std::fs::read(cert_path).expect("Unable to load TLS cert");

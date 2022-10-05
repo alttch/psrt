@@ -85,6 +85,5 @@ server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork"
     "hostname", "hyper", "serde_json", "syslog", "aes-gcm", "rand", "submap",
     "jemallocator"]
 crypto = ["aes-gcm", "rand"]
-fips = []
 std-alloc = []
 

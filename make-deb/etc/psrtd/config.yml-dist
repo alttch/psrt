@@ -22,6 +22,8 @@ proto:
   # only RSA private keys are supported
   #tls_key: certs/server.key
   # allow communcations without TLS
+  # enable OpenSSL FIPS 140
+  #fips: true
   allow_no_tls: true
   timeout: 10
 auth:
