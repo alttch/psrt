@@ -559,7 +559,7 @@ async fn handle_stream(
             format_login!(login)
         )));
     };
-    let client = { dbm!().register_client(login, addr) };
+    let client = { dbm!().register_client(login, addr) }?;
     stream.write(client.token_as_bytes()).await?;
     let result = process_control(stream, client.clone(), addr, acl, timeout).await;
     {

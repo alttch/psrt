@@ -1,5 +1,4 @@
 use crate::Error;
-use rand::Rng;
 use std::fmt;
 use std::str::FromStr;
 
@@ -20,19 +19,11 @@ impl AsRef<[u8]> for Token {
 }
 
 impl Token {
-    /// # Panics
-    ///
-    /// Should not panic
-    pub fn new() -> Self {
-        Self(
-            rand::thread_rng()
-                .sample_iter(&rand::distributions::Uniform::new(0, 0xff))
-                .take(32)
-                .map(u8::from)
-                .collect::<Vec<u8>>()
-                .try_into()
-                .unwrap(),
-        )
+    #[inline]
+    pub fn create() -> Result<Self, Error> {
+        let mut buf = [0; 32];
+        openssl::rand::rand_bytes(&mut buf)?;
+        Ok(Self(buf))
     }
     #[inline]
     pub fn from(buf: [u8; 32]) -> Self {
@@ -41,12 +32,6 @@ impl Token {
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
-    }
-}
-
-impl Default for Token {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

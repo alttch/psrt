@@ -218,10 +218,14 @@ impl ServerClientDB {
             client_count: self.submap.client_count(),
         }
     }
-    pub fn register_client(&mut self, login: &str, addr: SocketAddr) -> ServerClient {
+    pub fn register_client(
+        &mut self,
+        login: &str,
+        addr: SocketAddr,
+    ) -> Result<ServerClient, Error> {
         trace!("registering new client");
         loop {
-            let token: Token = <_>::default();
+            let token: Token = Token::create()?;
             let digest = submap::digest::sha256(&token);
             let client = Arc::new(ServerClientData {
                 token: Arc::new(token),
@@ -235,7 +239,7 @@ impl ServerClientDB {
                 self.clients_by_token
                     .insert(client.token.clone(), client.clone());
                 trace!("client registered: {}", client);
-                break client;
+                break Ok(client);
             }
         }
     }
