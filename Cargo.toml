@@ -1,6 +1,6 @@
 [package]
 name = "psrt"
-version = "0.1.29"
+version = "0.1.30"
 edition = "2021"
 authors = ["Sergei S. <div@altertech.com>"]
 license = "Apache-2.0"
@@ -72,7 +72,7 @@ num-format = { version = "0.4.0", optional = true }
 getch = { version = "0.2.1", optional = true }
 aes-gcm = { version = "0.9.4", optional = true }
 rand = { version = "0.8.4", optional = true }
-submap = { version = "0.2.2", features = ["digest"], optional = true }
+submap = { version = "0.2.3", optional = true }
 jemallocator = { version = "0.3.2", optional = true }
 parking_lot = "0.12.1"
 
@@ -82,7 +82,7 @@ cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
     "term_size", "prettytable-rs", "num-format", "getch", "rand",
     "jemallocator"]
 server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork",
-    "hostname", "hyper", "serde_json", "syslog", "submap", "jemallocator"]
+    "hostname", "hyper", "serde_json", "syslog", "jemallocator", "submap/native-digest"]
 crypto = ["aes-gcm", "rand"]
 openssl-vendored = ["openssl/vendored"]
 std-alloc = []
