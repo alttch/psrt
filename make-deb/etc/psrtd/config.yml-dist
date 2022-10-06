@@ -22,9 +22,9 @@ proto:
   #tls_pkcs12: certs/server.p12
   #tls_cert: certs/server.crt
   #tls_key: certs/server.key
-  # allow communcations without TLS
   # enable OpenSSL FIPS 140
   #fips: true
+  # allow communcations without TLS
   allow_no_tls: true
   timeout: 10
 auth:
