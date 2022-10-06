@@ -42,7 +42,6 @@ pkg:
 debian-pkg:
 	cd make-deb && ./build.sh && mv psrt-${VERSION}-amd64.deb ../_build/
 	cd make-deb && PACKAGE_SUFFIX=-ubuntu20.04 RUST_TARGET=. ./build.sh && \
-		mv psrt-${VERSION}-amd64.deb ../_build/ && \
 		mv psrt-${VERSION}-amd64-ubuntu20.04.deb ../_build/
 
 pub-pkg:
