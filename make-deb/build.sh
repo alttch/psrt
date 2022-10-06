@@ -12,15 +12,16 @@ else
   PACKAGE="psrt"
 fi
 
-TARGET="${PACKAGE}-${VERSION}-amd64"
+TARGET="${PACKAGE}-${VERSION}-amd64${PACKAGE_SUFFIX}"
+[ -z "${RUST_TARGET}" ] && RUST_TARGET=x86_64-unknown-linux-musl
 
 rm -rf "./${TARGET}"
 mkdir -p ./${TARGET}/usr/bin
 mkdir -p ./${TARGET}/usr/sbin
 mkdir -p ./${TARGET}/lib/systemd/system
 mkdir -p ./${TARGET}/DEBIAN
-cp -vf ${PSRT}/target/x86_64-unknown-linux-musl/release/psrt-cli ./${TARGET}/usr/bin/
-cp -vf ${PSRT}/target/x86_64-unknown-linux-musl/release/psrtd ./${TARGET}/usr/sbin/
+cp -vf ${PSRT}/target/${RUST_TARGET}/release/psrt-cli ./${TARGET}/usr/bin/
+cp -vf ${PSRT}/target/${RUST_TARGET}/release/psrtd ./${TARGET}/usr/sbin/
 cp -vf ${PSRT}/psrtd.service ./${TARGET}/lib/systemd/system/
 cp -rvf ./etc ./${TARGET}/
 strip ./${TARGET}/usr/bin/psrt-cli
