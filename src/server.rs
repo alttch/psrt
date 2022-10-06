@@ -1184,7 +1184,7 @@ fn main() {
     }
     let config: Config = serde_yaml::from_str(&cfg).unwrap();
     if config.proto.fips {
-        openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS-140");
+        openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140");
     }
     let tls_identity: Option<native_tls::Identity> =
         if let Some(ref tls_cert) = config.proto.tls_cert {
