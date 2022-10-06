@@ -727,6 +727,7 @@ struct ConfigProto {
     bind_udp: Option<String>,
     udp_frame_size: Option<u16>,
     timeout: f64,
+    tls_pkcs12: Option<String>,
     tls_cert: Option<String>,
     tls_key: Option<String>,
     #[serde(default)]
@@ -1188,7 +1189,12 @@ fn main() {
         info!("OpenSSL FIPS 140 enabled");
     }
     let tls_identity: Option<native_tls::Identity> =
-        if let Some(ref tls_cert) = config.proto.tls_cert {
+        if let Some(ref tls_pkcs12) = config.proto.tls_pkcs12 {
+            let p12_path = format_path!(tls_pkcs12);
+            info!("loading TLS PKCS12 {}", p12_path);
+            let p12 = std::fs::read(p12_path).expect("Unable to load TLS PKCS12");
+            Some(native_tls::Identity::from_pkcs12(&p12, "").unwrap())
+        } else if let Some(ref tls_cert) = config.proto.tls_cert {
             let cert_path = format_path!(tls_cert);
             info!("loading TLS cert {}", cert_path);
             let cert = std::fs::read(cert_path).expect("Unable to load TLS cert");
@@ -1198,9 +1204,15 @@ fn main() {
                 .as_ref()
                 .expect("TLS key not specified"));
             info!("loading TLS key {}", key_path);
-            let key = std::fs::read(key_path).expect("Unable to load TLS key");
-            let pkcs12 = generate_pkcs12("psrt_server", &cert, &key).unwrap();
-            Some(native_tls::Identity::from_pkcs12(&pkcs12, "").unwrap())
+            let key = std::fs::read_to_string(key_path).expect("Unable to load TLS key");
+            if key.lines().next().unwrap().contains("-BEGIN PRIVATE KEY-") {
+                // PKCS8
+                Some(native_tls::Identity::from_pkcs8(&cert, key.as_bytes()).unwrap())
+            } else {
+                // PKCS1
+                let pkcs12 = generate_pkcs12("psrt_server", &cert, key.as_bytes()).unwrap();
+                Some(native_tls::Identity::from_pkcs12(&pkcs12, "").unwrap())
+            }
         } else {
             None
         };

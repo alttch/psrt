@@ -18,8 +18,11 @@ proto:
   bind_udp: 0.0.0.0:2873
   # max udp frame size
   udp_frame_size: 4096
+  # for TLS: specify either PKCS12 (not supported with FIPS) or cert + key
+  #tls_pkcs12: certs/server.p12
   #tls_cert: certs/server.crt
-  # only RSA private keys are supported
+  # only RSA PKCS1 private keys are supported
+  # only PKCS8 private keys are supported with FIPS
   #tls_key: certs/server.key
   # allow communcations without TLS
   # enable OpenSSL FIPS 140
