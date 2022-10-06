@@ -1081,38 +1081,6 @@ macro_rules! handle_term_signal {
     };
 }
 
-fn generate_pkcs12(
-    name: &str,
-    cert: &[u8],
-    key: &[u8],
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let mut primary = Vec::new();
-    let mut chain = Vec::new();
-    let mut parse_primary = true;
-    for line in std::str::from_utf8(cert)?.lines() {
-        primary.push(line);
-        if parse_primary {
-            if line.contains("-END CERTIFICATE-") {
-                parse_primary = false;
-            }
-        } else {
-            chain.push(line);
-        }
-    }
-    let x509 = openssl::x509::X509::from_pem(primary.join("\r\n").as_bytes())?;
-    let mut stack = openssl::stack::Stack::new()?;
-    for cert in openssl::x509::X509::stack_from_pem(chain.join("\r\n").as_bytes())? {
-        stack.push(cert)?;
-    }
-    let key = openssl::pkey::PKey::from_rsa(openssl::rsa::Rsa::private_key_from_pem(key)?)?;
-    let mut builder = openssl::pkcs12::Pkcs12::builder();
-    builder.ca(stack);
-    builder
-        .build("", name, &key, &x509)?
-        .to_der()
-        .map_err(Into::into)
-}
-
 #[allow(clippy::too_many_lines)]
 fn main() {
     let opts = Opts::parse();
@@ -1188,34 +1156,32 @@ fn main() {
         openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140");
         info!("OpenSSL FIPS 140 enabled");
     }
-    let tls_identity: Option<native_tls::Identity> =
-        if let Some(ref tls_pkcs12) = config.proto.tls_pkcs12 {
-            let p12_path = format_path!(tls_pkcs12);
-            info!("loading TLS PKCS12 {}", p12_path);
-            let p12 = std::fs::read(p12_path).expect("Unable to load TLS PKCS12");
-            Some(native_tls::Identity::from_pkcs12(&p12, "").unwrap())
-        } else if let Some(ref tls_cert) = config.proto.tls_cert {
-            let cert_path = format_path!(tls_cert);
-            info!("loading TLS cert {}", cert_path);
-            let cert = std::fs::read(cert_path).expect("Unable to load TLS cert");
-            let key_path = format_path!(config
-                .proto
-                .tls_key
-                .as_ref()
-                .expect("TLS key not specified"));
-            info!("loading TLS key {}", key_path);
-            let key = std::fs::read_to_string(key_path).expect("Unable to load TLS key");
-            if key.lines().next().unwrap().contains("-BEGIN PRIVATE KEY-") {
-                // PKCS8
-                Some(native_tls::Identity::from_pkcs8(&cert, key.as_bytes()).unwrap())
-            } else {
-                // PKCS1
-                let pkcs12 = generate_pkcs12("psrt_server", &cert, key.as_bytes()).unwrap();
-                Some(native_tls::Identity::from_pkcs12(&pkcs12, "").unwrap())
-            }
-        } else {
-            None
-        };
+    let tls_identity: Option<native_tls::Identity> = if let Some(ref tls_pkcs12) =
+        config.proto.tls_pkcs12
+    {
+        let p12_path = format_path!(tls_pkcs12);
+        info!("loading TLS PKCS12 {}", p12_path);
+        let p12 = std::fs::read(p12_path).expect("Unable to load TLS PKCS12");
+        Some(native_tls::Identity::from_pkcs12(&p12, "").unwrap())
+    } else if let Some(ref tls_cert) = config.proto.tls_cert {
+        let cert_path = format_path!(tls_cert);
+        info!("loading TLS cert {}", cert_path);
+        let cert = std::fs::read(cert_path).expect("Unable to load TLS cert");
+        let key_path = format_path!(config
+            .proto
+            .tls_key
+            .as_ref()
+            .expect("TLS key not specified"));
+        info!("loading TLS key {}", key_path);
+        let key = std::fs::read(key_path).expect("Unable to load TLS key");
+        let priv_key = openssl::pkey::PKey::private_key_from_pem(&key).unwrap();
+        Some(
+            native_tls::Identity::from_pkcs8(&cert, &priv_key.private_key_to_pem_pkcs8().unwrap())
+                .unwrap(),
+        )
+    } else {
+        None
+    };
     let timeout = Duration::from_secs_f64(config.proto.timeout);
     let replication_configs = config.cluster.as_ref().map(|c| {
         let fname = format_path!(c.config);
