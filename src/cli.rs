@@ -354,8 +354,8 @@ async fn main() {
         })
         .init();
     let queue_size = if opts.benchmark { 256_000 } else { 4_096 };
-    let user = opts.user.unwrap_or_else(|| "".to_owned());
-    let password = opts.password.unwrap_or_else(|| "".to_owned());
+    let user = opts.user.unwrap_or_default();
+    let password = opts.password.unwrap_or_default();
     let tls_ca = if let Some(cafile) = opts.tls_ca {
         Some(tokio::fs::read_to_string(cafile).await.unwrap())
     } else {
@@ -467,9 +467,7 @@ async fn main() {
             let topic = opts.topic.expect(ERR_TOPIC_NOT_SPECIFIED);
             if let Some(message_size) = msg.strip_prefix("==") {
                 let mut m = Vec::new();
-                let size = byte_unit::Byte::from_str(&message_size)
-                    .unwrap()
-                    .get_bytes();
+                let size = byte_unit::Byte::from_str(message_size).unwrap().get_bytes();
                 for i in 0..size {
                     #[allow(clippy::cast_possible_truncation)]
                     m.push(i as u8);

@@ -87,7 +87,7 @@ impl ControlCommand {
             ControlCommand::Subscribe(topic) => {
                 let topic = topic.as_bytes();
                 buf.push(OP_SUBSCRIBE);
-                buf.extend(&(topic.len() as u32).to_le_bytes());
+                buf.extend((topic.len() as u32).to_le_bytes());
                 buf.extend(topic);
             }
             ControlCommand::SubscribeBulk(topics) => {
@@ -96,7 +96,7 @@ impl ControlCommand {
                 for t in topics {
                     len += t.as_bytes().len() as u32 + 1;
                 }
-                buf.extend(&len.to_le_bytes());
+                buf.extend(len.to_le_bytes());
                 for t in topics {
                     buf.extend(t.as_bytes());
                     buf.push(0x0);
@@ -105,7 +105,7 @@ impl ControlCommand {
             ControlCommand::Unsubscribe(topic) => {
                 let topic = topic.as_bytes();
                 buf.push(OP_UNSUBSCRIBE);
-                buf.extend(&(topic.len() as u32).to_le_bytes());
+                buf.extend((topic.len() as u32).to_le_bytes());
                 buf.extend(topic);
             }
             ControlCommand::UnsubscribeBulk(topics) => {
@@ -114,7 +114,7 @@ impl ControlCommand {
                 for t in topics {
                     len += t.as_bytes().len() as u32 + 1;
                 }
-                buf.extend(&len.to_le_bytes());
+                buf.extend(len.to_le_bytes());
                 for t in topics {
                     buf.extend(t.as_bytes());
                     buf.push(0x0);
@@ -124,14 +124,14 @@ impl ControlCommand {
                 buf.push(OP_PUBLISH);
                 buf.push(*priority);
                 buf.extend(
-                    &(topic.as_bytes().len() as u32 + 1 + message.len() as u32).to_le_bytes(),
+                    (topic.as_bytes().len() as u32 + 1 + message.len() as u32).to_le_bytes(),
                 );
                 buf.extend(topic.as_bytes());
                 buf.push(0x00);
             }
             ControlCommand::PublishRepl(_, topic, _, _) => {
                 buf.push(OP_PUBLISH_REPL);
-                buf.extend(&(topic.as_bytes().len() as u32).to_le_bytes());
+                buf.extend((topic.as_bytes().len() as u32).to_le_bytes());
                 buf.extend(topic.as_bytes());
             }
             ControlCommand::Bye => {
@@ -206,8 +206,8 @@ impl Config {
     pub fn new(path: &str) -> Self {
         Self {
             path: path.to_owned(),
-            user: "".to_owned(),
-            password: "".to_owned(),
+            user: String::new(),
+            password: String::new(),
             timeout: get_default_timeout(),
             queue_size: get_default_queue_size(),
             tls: false,

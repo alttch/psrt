@@ -667,7 +667,7 @@ async fn handle_data_stream(
         } else {
             trace!("Sending message_frame to {}", token);
             let op_start = Instant::now();
-            eof_is_ok!(stream.write(&*message.frame).await);
+            eof_is_ok!(stream.write(&message.frame).await);
             if let Some(data) = message.data.as_ref() {
                 eof_is_ok!(
                     stream
@@ -886,7 +886,7 @@ async fn run_server(
                         };
                         if let Some(code) = ack_code {
                             let mut buf = CONTROL_HEADER.to_vec();
-                            buf.extend(&psrt::PROTOCOL_VERSION.to_le_bytes());
+                            buf.extend(psrt::PROTOCOL_VERSION.to_le_bytes());
                             buf.push(code);
                             if let Err(e) = udp_sock.send_to(&buf, addr).await {
                                 error!("{}", e);
@@ -1049,7 +1049,7 @@ async fn terminate(allow_log: bool) {
         if allow_log {
             trace!("removing pid file {}", f);
         }
-        let _r = std::fs::remove_file(&f);
+        let _r = std::fs::remove_file(f);
     }
     if allow_log {
         info!("terminating");
@@ -1417,7 +1417,7 @@ mod stats {
                 return Ok(Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
                     .header("www-authenticate", "Basic realm=\"?\"")
-                    .body(Body::from("".to_owned()))
+                    .body(Body::from(String::new()))
                     .unwrap());
             }
             match path {
