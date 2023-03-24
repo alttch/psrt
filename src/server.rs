@@ -551,9 +551,7 @@ async fn handle_stream(
             login, addr
         )));
     }
-    let acl = if let Some(acl) = get_acl(login).await {
-        acl
-    } else {
+    let Some(acl) = get_acl(login).await else {
         return Err(Error::access(format!(
             "No ACL for {}",
             format_login!(login)
@@ -958,9 +956,7 @@ async fn process_udp_block(
             return Err((Error::access("authentication failed"), need_ack));
         }
     }
-    let acl = if let Some(acl) = get_acl(login).await {
-        acl
-    } else {
+    let Some(acl) = get_acl(login).await else {
         return Err((
             Error::access(format!("No ACL for {}", format_login!(login))),
             need_ack,

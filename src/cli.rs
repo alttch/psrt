@@ -336,7 +336,6 @@ fn parse_topics(topic: Option<&String>) -> Vec<String> {
     topic
         .expect(ERR_TOPIC_NOT_SPECIFIED)
         .split(',')
-        .into_iter()
         .map(ToOwned::to_owned)
         .collect::<Vec<String>>()
 }
