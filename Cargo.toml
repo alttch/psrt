@@ -2,7 +2,7 @@
 name = "psrt"
 version = "0.1.30"
 edition = "2021"
-authors = ["Sergei S. <div@altertech.com>"]
+authors = ["Serhij S. <div@altertech.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/alttch/psrt"
 description = "Industrial Pub-Sub server with minimal latency and MQTT-compatible logic"

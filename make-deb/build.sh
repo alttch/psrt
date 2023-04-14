@@ -33,7 +33,7 @@ Version: ${VERSION}
 Section: base
 Priority: optional
 Architecture: amd64
-Maintainer: Sergei S. <div@altertech.com>
+Maintainer: Serhij S. <div@altertech.com>
 Description: Industrial Pub-Sub server with minimal latency and MQTT-compatible logic
 EOF
 ) > ./${TARGET}/DEBIAN/control
