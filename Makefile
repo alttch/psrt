@@ -59,4 +59,4 @@ release-enterprise:
 	  PACKAGE_SUFFIX=-ubuntu20.04 RUST_TARGET=. ./build.sh enterprise && \
 		gsutil cp -a public-read psrt-enterprise-${VERSION}-amd64.deb gs://pub.bma.ai/psrt-enterprise/ && \
 		gsutil cp -a public-read psrt-enterprise-${VERSION}-amd64-ubuntu20.04.deb gs://pub.bma.ai/psrt-enterprise/
-	jks build pub.bma.ai
+	rci job run pub.bma.ai
