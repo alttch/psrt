@@ -1272,7 +1272,7 @@ fn main() {
             }
         });
         if let Some(ref bind_stats) = config.server.bind_stats {
-            stats::start(bind_stats).await;
+            stats::start(bind_stats);
         }
         if let Err(e) =
             run_server(&config, timeout, tls_identity, replication_configs, license).await
@@ -1444,7 +1444,7 @@ mod stats {
         }
     }
 
-    pub async fn start(path: &str) {
+    pub fn start(path: &str) {
         let addr: SocketAddr = path.parse().unwrap();
         log::info!("binding stats server to: {}", addr);
         let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handler)) });
