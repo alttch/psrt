@@ -6,7 +6,7 @@ use colored::Colorize;
 use log::{error, info, trace, warn};
 use log::{Level, LevelFilter};
 use psrt::acl::{self, ACL_DB};
-use psrt::comm::SStream;
+use psrt::comm::{SStream, StreamHandler};
 use psrt::pubsub::now_ns;
 use psrt::pubsub::MessageFrame;
 use psrt::pubsub::TOPIC_INVALID_SYMBOLS;
@@ -222,7 +222,7 @@ async fn push_to_subscribers(
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::mutable_key_type)]
 async fn process_control(
-    mut stream: SStream,
+    mut stream: Box<dyn StreamHandler>,
     client: ServerClient,
     addr: SocketAddr,
     acl: Arc<acl::Acl>,
@@ -456,7 +456,7 @@ async fn init_stream(
     timeout: Duration,
     acceptor: Option<TlsAcceptor>,
     allow_no_tls: bool,
-) -> Result<(SStream, StreamType), Error> {
+) -> Result<(Box<dyn StreamHandler>, StreamType), Error> {
     client_stream.set_nodelay(true)?;
     let mut greeting: [u8; 3] = [0; 3];
     time::timeout(timeout, client_stream.read_exact(&mut greeting)).await??;
@@ -468,11 +468,11 @@ async fn init_stream(
             return Err(Error::io(format!("Invalid greeting header: {:x?}", header)));
         }
     };
-    let mut stream = match greeting[2] {
+    let mut stream: Box<dyn StreamHandler> = match greeting[2] {
         COMM_INSECURE => {
             if allow_no_tls {
                 info!("{} using insecure connection", addr);
-                SStream::new(client_stream, timeout)
+                Box::new(SStream::new(client_stream, timeout))
             } else {
                 return Err(Error::io("Communication without TLS is forbidden"));
             }
@@ -480,7 +480,7 @@ async fn init_stream(
         COMM_TLS => {
             if let Some(a) = acceptor {
                 info!("{} using TLS connection", addr);
-                SStream::new_tls(a.accept(client_stream).await?, timeout)
+                Box::new(SStream::new(a.accept(client_stream).await?, timeout))
             } else {
                 return Err(Error::io("TLS is not configured"));
             }
@@ -569,7 +569,10 @@ async fn handle_stream(
 }
 
 #[allow(clippy::cast_precision_loss)]
-async fn launch_data_stream(mut stream: SStream, timeout: Duration) -> Result<(), Error> {
+async fn launch_data_stream(
+    mut stream: Box<dyn StreamHandler>,
+    timeout: Duration,
+) -> Result<(), Error> {
     let mut buf: [u8; 32] = [0; 32];
     let op_start = Instant::now();
     stream.read(&mut buf).await?;
@@ -636,7 +639,7 @@ async fn launch_data_stream(mut stream: SStream, timeout: Duration) -> Result<()
 }
 
 async fn handle_data_stream(
-    mut stream: SStream,
+    mut stream: Box<dyn StreamHandler>,
     token: &Token,
     rx: async_channel::Receiver<Arc<MessageFrame>>,
     timeout: Duration,

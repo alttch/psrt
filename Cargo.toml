@@ -75,6 +75,7 @@ rand = { version = "0.8.4", optional = true }
 submap = { version = "0.2.3", optional = true }
 jemallocator = { version = "0.3.2", optional = true }
 parking_lot = "0.12.1"
+async-trait = "0.1.74"
 
 [features]
 cluster = []

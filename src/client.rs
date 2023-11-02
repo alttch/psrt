@@ -13,7 +13,7 @@ use tokio::time;
 use tokio::time::sleep;
 use tokio_native_tls::{native_tls, TlsConnector};
 
-use crate::comm::SStream;
+use crate::comm::{SStream, StreamHandler};
 use crate::OP_BYE;
 use crate::OP_NOP;
 use crate::OP_PUBLISH;
@@ -330,7 +330,7 @@ impl Client {
         let mut greeting = Vec::new();
         greeting.extend(crate::CONTROL_HEADER);
         // switch to TLS if required
-        let mut control_stream = if let Some(ref builder) = tls_builder {
+        let mut control_stream: Box<dyn StreamHandler> = if let Some(ref builder) = tls_builder {
             greeting.push(COMM_TLS);
             trace!("Setting up TLS control connection");
             time::timeout(
@@ -339,10 +339,10 @@ impl Client {
             )
             .await??;
             let connector = TlsConnector::from(builder.build()?);
-            SStream::new_tls(
+            Box::new(SStream::new(
                 connector.connect(path_domain, c_control_stream).await?,
                 timeout,
-            )
+            ))
         } else {
             greeting.push(COMM_INSECURE);
             trace!("Setting up insecure control connection");
@@ -351,7 +351,7 @@ impl Client {
                 c_control_stream.write_all(&greeting),
             )
             .await??;
-            SStream::new(c_control_stream, timeout)
+            Box::new(SStream::new(c_control_stream, timeout))
         };
         let mut buf: [u8; 2] = [0; 2];
         trace!("reading control header");
@@ -408,7 +408,7 @@ impl Client {
             let mut greeting = Vec::new();
             greeting.extend(crate::DATA_HEADER);
             // switch data stream to TLS if required
-            let mut data_stream = if let Some(ref builder) = tls_builder {
+            let mut data_stream: Box<dyn StreamHandler> = if let Some(ref builder) = tls_builder {
                 greeting.push(COMM_TLS);
                 trace!("Setting up TLS data connection");
                 time::timeout(
@@ -417,10 +417,10 @@ impl Client {
                 )
                 .await??;
                 let connector = TlsConnector::from(builder.build()?);
-                SStream::new_tls(
+                Box::new(SStream::new(
                     connector.connect(path_domain, c_data_stream).await?,
                     timeout,
-                )
+                ))
             } else {
                 greeting.push(COMM_INSECURE);
                 trace!("Setting up insecure data connection");
@@ -429,7 +429,7 @@ impl Client {
                     c_data_stream.write_all(&greeting),
                 )
                 .await??;
-                SStream::new(c_data_stream, timeout)
+                Box::new(SStream::new(c_data_stream, timeout))
             };
             let mut buf: [u8; 2] = [0; 2];
             trace!("reading data header");
@@ -614,7 +614,7 @@ impl Client {
     }
 
     async fn run_control_stream(
-        mut control_stream: SStream,
+        mut control_stream: Box<dyn StreamHandler>,
         rx: async_channel::Receiver<Command>,
         path: &str,
         beacon_interval: Duration,
@@ -720,7 +720,7 @@ impl Client {
     }
 
     async fn run_data_stream(
-        mut data_stream: SStream,
+        mut data_stream: Box<dyn StreamHandler>,
         tx: async_channel::Sender<Message>,
         cc: async_channel::Sender<Command>,
     ) -> Result<(), Error> {

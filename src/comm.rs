@@ -1,94 +1,95 @@
 //! Internal socket communication wrapper
 use crate::reduce_timeout;
 use crate::Error;
+use async_trait::async_trait;
+use std::marker::Unpin;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
 use tokio::time;
-use tokio_native_tls::TlsStream;
 
-enum Stream {
-    Plain(Box<TcpStream>),
-    Tls(Box<TlsStream<TcpStream>>),
-}
+//enum Stream {
+//Plain(Box<TcpStream>),
+//Tls(Box<TlsStream<TcpStream>>),
+//}
 
-pub struct SStream {
-    stream: Stream,
+pub struct SStream<S>
+where
+    S: AsyncReadExt + AsyncWriteExt + Send + Unpin,
+{
+    stream: S,
     timeout: Duration,
 }
 
-impl SStream {
-    pub fn new(stream: TcpStream, timeout: Duration) -> Self {
-        Self {
-            stream: Stream::Plain(Box::new(stream)),
-            timeout,
-        }
+impl<S> SStream<S>
+where
+    S: AsyncReadExt + AsyncWriteExt + Send + Unpin,
+{
+    pub fn new(stream: S, timeout: Duration) -> Self {
+        Self { stream, timeout }
     }
-    pub fn new_tls(stream: TlsStream<TcpStream>, timeout: Duration) -> Self {
-        Self {
-            stream: Stream::Tls(Box::new(stream)),
-            timeout,
-        }
-    }
+}
+
+#[async_trait]
+pub trait StreamHandler: Send {
+    async fn write(&mut self, buf: &[u8]) -> Result<(), Error>;
+    async fn write_with_timeout(&mut self, buf: &[u8], timeout: Duration) -> Result<(), Error>;
+    async fn read(&mut self, buf: &mut [u8]) -> Result<(), Error>;
+    async fn read_with_timeout(&mut self, buf: &mut [u8], timeout: Duration) -> Result<(), Error>;
+    async fn read_frame(&mut self, max_length: Option<usize>) -> Result<Vec<u8>, Error>;
+    async fn read_frame_with_timeout(
+        &mut self,
+        max_length: Option<usize>,
+        timeout: Duration,
+    ) -> Result<Vec<u8>, Error>;
+    fn get_timeout(&self) -> Duration;
+}
+
+#[async_trait]
+impl<S> StreamHandler for SStream<S>
+where
+    S: AsyncReadExt + AsyncWriteExt + Send + Sync + Unpin,
+{
     /// # Errors
     ///
     /// Will return Err on communcation errors
     #[inline]
-    pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
+    async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
         self.write_with_timeout(buf, self.timeout).await
     }
     /// # Errors
     ///
     /// Will return Err on communcation errors
     #[inline]
-    pub async fn write_with_timeout(&mut self, buf: &[u8], timeout: Duration) -> Result<(), Error> {
-        match self.stream {
-            Stream::Plain(ref mut stream) => {
-                time::timeout(timeout, stream.write_all(buf)).await??;
-            }
-            Stream::Tls(ref mut stream) => {
-                time::timeout(timeout, stream.write_all(buf)).await??;
-            }
-        }
+    async fn write_with_timeout(&mut self, buf: &[u8], timeout: Duration) -> Result<(), Error> {
+        time::timeout(timeout, self.stream.write_all(buf)).await??;
         Ok(())
     }
     /// # Errors
     ///
     /// Will return Err on communcation errors
     #[inline]
-    pub async fn read(&mut self, buf: &mut [u8]) -> Result<(), Error> {
+    async fn read(&mut self, buf: &mut [u8]) -> Result<(), Error> {
         self.read_with_timeout(buf, self.timeout).await
     }
     /// # Errors
     ///
     /// Will return Err on communcation errors
     #[inline]
-    pub async fn read_with_timeout(
-        &mut self,
-        buf: &mut [u8],
-        timeout: Duration,
-    ) -> Result<(), Error> {
-        match self.stream {
-            Stream::Plain(ref mut stream) => {
-                time::timeout(timeout, stream.read_exact(buf)).await??;
-            }
-            Stream::Tls(ref mut stream) => {
-                time::timeout(timeout, stream.read_exact(buf)).await??;
-            }
-        }
+    async fn read_with_timeout(&mut self, buf: &mut [u8], timeout: Duration) -> Result<(), Error> {
+        time::timeout(timeout, self.stream.read_exact(buf)).await??;
         Ok(())
     }
     /// # Errors
     ///
     /// Will return Err on communcation errors
     #[inline]
-    pub async fn read_frame(&mut self, max_length: Option<usize>) -> Result<Vec<u8>, Error> {
+    async fn read_frame(&mut self, max_length: Option<usize>) -> Result<Vec<u8>, Error> {
         self.read_frame_with_timeout(max_length, self.timeout).await
     }
     /// # Errors
     ///
     /// Will return Err on communcation errors
-    pub async fn read_frame_with_timeout(
+    async fn read_frame_with_timeout(
         &mut self,
         max_length: Option<usize>,
         timeout: Duration,
@@ -107,7 +108,7 @@ impl SStream {
             .await?;
         Ok(buf)
     }
-    pub fn get_timeout(&self) -> Duration {
+    fn get_timeout(&self) -> Duration {
         self.timeout
     }
 }
