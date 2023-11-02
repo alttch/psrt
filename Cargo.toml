@@ -78,7 +78,7 @@ parking_lot = "0.12.1"
 async-trait = "0.1.74"
 
 [features]
-cluster = []
+cluster = ["server"]
 cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
     "term_size", "prettytable-rs", "num-format", "getch", "rand",
     "jemallocator"]
