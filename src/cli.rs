@@ -364,6 +364,7 @@ async fn main() {
         .set_auth(&user, &password)
         .set_queue_size(queue_size)
         .set_timeout(Duration::from_secs_f64(opts.timeout))
+        .set_socket_wait_timeout(Duration::from_secs_f64(opts.timeout))
         .set_tls(opts.tls)
         .set_tls_ca(tls_ca)
         .build();

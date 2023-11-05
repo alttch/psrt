@@ -1,10 +1,27 @@
 //! PSRT client module
+use crate::comm::{SStream, StreamHandler};
+use crate::is_unix_socket;
 use crate::reduce_timeout;
+use crate::Message;
+use crate::COMM_INSECURE;
+use crate::COMM_TLS;
+use crate::OP_BYE;
+use crate::OP_NOP;
+use crate::OP_PUBLISH;
+use crate::OP_PUBLISH_REPL;
+use crate::OP_SUBSCRIBE;
+use crate::OP_UNSUBSCRIBE;
+use crate::RESPONSE_ERR_ACCESS;
+use crate::RESPONSE_NOT_REQUIRED;
+use crate::RESPONSE_OK;
+use crate::RESPONSE_OK_WAITING;
 use crate::{Error, ErrorKind};
+use log::trace;
+use serde::{Deserialize, Deserializer};
+use std::path::Path;
 use std::sync::atomic;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpStream, UnixStream};
 use tokio::sync::oneshot;
@@ -12,29 +29,6 @@ use tokio::task::JoinHandle;
 use tokio::time;
 use tokio::time::sleep;
 use tokio_native_tls::{native_tls, TlsConnector};
-
-use crate::comm::{SStream, StreamHandler};
-use crate::OP_BYE;
-use crate::OP_NOP;
-use crate::OP_PUBLISH;
-use crate::OP_PUBLISH_REPL;
-use crate::OP_SUBSCRIBE;
-use crate::OP_UNSUBSCRIBE;
-
-use crate::COMM_INSECURE;
-use crate::COMM_TLS;
-
-use crate::Message;
-
-use crate::is_unix_socket;
-use crate::RESPONSE_ERR_ACCESS;
-use crate::RESPONSE_NOT_REQUIRED;
-use crate::RESPONSE_OK;
-use crate::RESPONSE_OK_WAITING;
-
-use log::trace;
-
-use serde::{Deserialize, Deserializer};
 
 static ERR_COMMUNCATION_LOST: &str = "Communication lost";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -194,6 +188,11 @@ pub struct Config {
         deserialize_with = "de_float_as_duration"
     )]
     timeout: Duration,
+    #[serde(
+        default = "get_default_timeout",
+        deserialize_with = "de_float_as_duration"
+    )]
+    socket_wait_timeout: Duration,
     #[serde(default = "get_default_queue_size")]
     queue_size: usize,
     #[serde(default)]
@@ -210,6 +209,7 @@ impl Config {
             user: String::new(),
             password: String::new(),
             timeout: get_default_timeout(),
+            socket_wait_timeout: get_default_timeout(),
             queue_size: get_default_queue_size(),
             tls: false,
             tls_ca: None,
@@ -231,6 +231,12 @@ impl Config {
     #[inline]
     pub fn set_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
+        self
+    }
+    /// Set socket wait timeout (for UNIX sockets only)
+    #[inline]
+    pub fn set_socket_wait_timeout(mut self, timeout: Duration) -> Self {
+        self.socket_wait_timeout = timeout;
         self
     }
     /// Set queue size
@@ -269,6 +275,10 @@ impl Config {
     #[inline]
     pub fn timeout(&self) -> Duration {
         self.timeout
+    }
+    #[inline]
+    pub fn socket_wait_timeout(&self) -> Duration {
+        self.socket_wait_timeout
     }
     /// Get TLS CA
     #[inline]
@@ -319,7 +329,7 @@ impl Client {
         let is_unix = is_unix_socket(&config.path);
         // Connect control stream
         trace!("connecting control stream to {}", config.path);
-        let op_start = Instant::now();
+        let mut op_start = Instant::now();
         let timeout = config.timeout;
         let path_domain = if is_unix {
             None
@@ -336,6 +346,17 @@ impl Client {
             let mut greeting = Vec::new();
             greeting.extend(crate::CONTROL_HEADER);
             if is_unix {
+                let path = Path::new(&config.path);
+                let sleep_step = Duration::from_millis(100);
+                if !path.exists() {
+                    while !path.exists() {
+                        tokio::time::sleep(sleep_step).await;
+                        if op_start.elapsed() > config.socket_wait_timeout {
+                            return Err(Error::io("UNIX socket not found"));
+                        }
+                    }
+                    op_start = Instant::now();
+                }
                 let mut c_control_stream =
                     time::timeout(timeout, UnixStream::connect(&config.path)).await??;
                 greeting.push(COMM_INSECURE);
