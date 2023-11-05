@@ -722,10 +722,33 @@ struct ConfigAuth {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(untagged)]
+enum StringOrList {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl Default for StringOrList {
+    fn default() -> Self {
+        Self::Multiple(Vec::new())
+    }
+}
+
+impl From<StringOrList> for Vec<String> {
+    fn from(l: StringOrList) -> Self {
+        match l {
+            StringOrList::Single(s) => vec![s],
+            StringOrList::Multiple(v) => v,
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 struct ConfigProto {
-    bind: String,
-    bind_udp: Option<String>,
+    #[serde(default)]
+    bind: StringOrList,
+    bind_udp: StringOrList,
     udp_frame_size: Option<u16>,
     timeout: f64,
     tls_pkcs12: Option<String>,
@@ -811,8 +834,8 @@ fn set_verbose_logger(filter: LevelFilter) {
 }
 
 #[allow(clippy::too_many_lines)]
-async fn run_server(
-    config: &Config,
+async fn launch_server(
+    config: Config,
     timeout: Duration,
     tls_identity: Option<native_tls::Identity>,
     mut replication_configs: Option<Vec<psrt::client::Config>>,
@@ -824,18 +847,31 @@ async fn run_server(
     } else {
         None
     };
-    info!("binding to: {}", config.proto.bind);
-    let listener = TcpListener::bind(&config.proto.bind).await?;
+    let mut listeners = Vec::new();
+    for bind in Vec::from(config.proto.bind) {
+        info!("binding to: {}", bind);
+        let sock = TcpListener::bind(&bind).await?;
+        listeners.push(sock);
+    }
+    let mut udp_listeners = Vec::new();
+    let udp_frame_size = config
+        .proto
+        .udp_frame_size
+        .unwrap_or(DEFAULT_UDP_FRAME_SIZE);
+    for bind in Vec::from(config.proto.bind_udp) {
+        info!(
+            "binding UDP socket to: {}, max frame size: {}",
+            bind, udp_frame_size
+        );
+        let sock = UdpSocket::bind(bind).await?;
+        udp_listeners.push(sock);
+    }
     let pid = std::process::id().to_string();
     if let Ok(name) = hostname::get() {
         if let Some(name) = name.to_str() {
             *HOST_NAME.lock().unwrap() = name.to_owned();
         }
     }
-    info!(
-        "starting server, workers: {}, timeout: {:?}",
-        config.server.workers, timeout
-    );
     info!("creating pid file {}, PID: {}", config.server.pid_file, pid);
     {
         PID_FILE
@@ -852,55 +888,29 @@ async fn run_server(
     if let Some(_configs) = replication_configs.take() {
         warn!("cluster feature is disabled");
     }
-    if let Some(ref bind_udp) = config.proto.bind_udp {
-        let udp_frame_size = config
-            .proto
-            .udp_frame_size
-            .unwrap_or(DEFAULT_UDP_FRAME_SIZE);
-        info!(
-            "binding UDP socket to: {}, max frame size: {}",
-            bind_udp, udp_frame_size
-        );
-        let udp_sock = UdpSocket::bind(bind_udp).await?;
-        tokio::spawn(async move {
-            let mut buf = vec![0_u8; udp_frame_size as usize];
-            loop {
-                match udp_sock.recv_from(&mut buf).await {
-                    Ok((len, addr)) => {
-                        trace!("udp packet {} bytes from {}", len, addr);
-                        let frame: Vec<u8> = buf[..len].to_vec();
-                        let ack_code = match process_udp_packet(frame).await {
-                            Ok(true) => Some(RESPONSE_OK),
-                            Err((e, need_ack)) => {
-                                error!("udp packet from {} error: {}", addr, e);
-                                if need_ack {
-                                    if e.kind() == psrt::ErrorKind::AccessDenied {
-                                        Some(RESPONSE_ERR_ACCESS)
-                                    } else {
-                                        Some(RESPONSE_ERR)
-                                    }
-                                } else {
-                                    None
-                                }
-                            }
-                            _ => None,
-                        };
-                        if let Some(code) = ack_code {
-                            let mut buf = CONTROL_HEADER.to_vec();
-                            buf.extend(psrt::PROTOCOL_VERSION.to_le_bytes());
-                            buf.push(code);
-                            if let Err(e) = udp_sock.send_to(&buf, addr).await {
-                                error!("{}", e);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        error!("udp socket error: {}", e);
-                    }
-                }
-            }
-        });
+    for listener in listeners {
+        tokio::spawn(handle_tcp_listener(
+            listener,
+            acceptor.clone(),
+            timeout,
+            allow_no_tls,
+        ));
     }
+    for listener in udp_listeners {
+        tokio::spawn(handle_udp_listener(listener, udp_frame_size));
+    }
+    let sleep_step = std::time::Duration::from_secs(1);
+    loop {
+        tokio::time::sleep(sleep_step).await;
+    }
+}
+
+async fn handle_tcp_listener(
+    listener: TcpListener,
+    acceptor: Option<TlsAcceptor>,
+    timeout: Duration,
+    allow_no_tls: bool,
+) {
     loop {
         let acc = acceptor.clone();
         match listener.accept().await {
@@ -916,6 +926,45 @@ async fn run_server(
             }
             Err(e) => {
                 error!("{}", e);
+            }
+        }
+    }
+}
+
+async fn handle_udp_listener(listener: UdpSocket, udp_frame_size: u16) {
+    let mut buf = vec![0_u8; udp_frame_size as usize];
+    loop {
+        match listener.recv_from(&mut buf).await {
+            Ok((len, addr)) => {
+                trace!("udp packet {} bytes from {}", len, addr);
+                let frame: Vec<u8> = buf[..len].to_vec();
+                let ack_code = match process_udp_packet(frame).await {
+                    Ok(true) => Some(RESPONSE_OK),
+                    Err((e, need_ack)) => {
+                        error!("udp packet from {} error: {}", addr, e);
+                        if need_ack {
+                            if e.kind() == psrt::ErrorKind::AccessDenied {
+                                Some(RESPONSE_ERR_ACCESS)
+                            } else {
+                                Some(RESPONSE_ERR)
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
+                if let Some(code) = ack_code {
+                    let mut buf = CONTROL_HEADER.to_vec();
+                    buf.extend(psrt::PROTOCOL_VERSION.to_le_bytes());
+                    buf.push(code);
+                    if let Err(e) = listener.send_to(&buf, addr).await {
+                        error!("{}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                error!("udp socket error: {}", e);
             }
         }
     }
@@ -1277,8 +1326,12 @@ fn main() {
         if let Some(ref bind_stats) = config.server.bind_stats {
             stats::start(bind_stats);
         }
+        info!(
+            "starting server, workers: {}, timeout: {:?}",
+            config.server.workers, timeout
+        );
         if let Err(e) =
-            run_server(&config, timeout, tls_identity, replication_configs, license).await
+            launch_server(config, timeout, tls_identity, replication_configs, license).await
         {
             error!("{}", e);
             std::process::exit(1);
