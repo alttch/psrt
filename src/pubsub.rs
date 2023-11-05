@@ -5,7 +5,6 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::{BTreeSet, HashMap};
 use std::fmt;
-use std::net::SocketAddr;
 use std::sync::atomic;
 use std::sync::Arc;
 use submap::SubMap;
@@ -49,7 +48,7 @@ pub struct MessageFrame {
 pub struct ServerClientData {
     login: String,
     digest: submap::digest::Sha256Digest,
-    addr: SocketAddr,
+    addr: String,
     token: Arc<Token>,
     data_channel: Mutex<Option<async_channel::Sender<Arc<MessageFrame>>>>,
     tasks: Mutex<Vec<JoinHandle<()>>>,
@@ -76,8 +75,8 @@ impl ServerClientData {
         &self.login
     }
     #[inline]
-    pub fn addr(&self) -> SocketAddr {
-        self.addr
+    pub fn addr(&self) -> &str {
+        &self.addr
     }
     /// # Panics
     ///
@@ -218,11 +217,7 @@ impl ServerClientDB {
             client_count: self.submap.client_count(),
         }
     }
-    pub fn register_client(
-        &mut self,
-        login: &str,
-        addr: SocketAddr,
-    ) -> Result<ServerClient, Error> {
+    pub fn register_client(&mut self, login: &str, addr: &str) -> Result<ServerClient, Error> {
         trace!("registering new client");
         loop {
             let token: Token = Token::create()?;
@@ -231,7 +226,7 @@ impl ServerClientDB {
                 token: Arc::new(token),
                 digest,
                 login: login.to_owned(),
-                addr,
+                addr: addr.to_owned(),
                 data_channel: <_>::default(),
                 tasks: <_>::default(),
             });

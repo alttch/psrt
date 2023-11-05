@@ -16,7 +16,9 @@ server:
   # remove for free version
   license: /opt/workstuff/psrt-license.key
 proto:
-  bind: 0.0.0.0:2873
+  bind:
+    - 0.0.0.0:2873
+    - /tmp/psrt.sock
   bind_udp: 0.0.0.0:2873
   # max udp frame size
   udp_frame_size: 8192

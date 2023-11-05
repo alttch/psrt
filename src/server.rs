@@ -7,6 +7,7 @@ use log::{error, info, trace, warn};
 use log::{Level, LevelFilter};
 use psrt::acl::{self, ACL_DB};
 use psrt::comm::{SStream, StreamHandler};
+use psrt::is_unix_socket;
 use psrt::pubsub::now_ns;
 use psrt::pubsub::MessageFrame;
 use psrt::pubsub::TOPIC_INVALID_SYMBOLS;
@@ -32,12 +33,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::net::SocketAddr;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::atomic;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::AsyncReadExt;
-use tokio::net::{TcpListener, TcpStream, UdpSocket};
+use tokio::net::{TcpListener, TcpStream, UdpSocket, UnixListener, UnixStream};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{Mutex, RwLock};
 use tokio::time;
@@ -114,6 +116,7 @@ lazy_static! {
     static ref PID_FILE: Mutex<Option<String>> = <_>::default();
     static ref HOST_NAME: std::sync::Mutex<String> = std::sync::Mutex::new("unknown".to_owned());
     static ref UPTIME: Instant = Instant::now();
+    static ref UNIX_SOCKETS: parking_lot::Mutex<BTreeSet<String>> = <_>::default();
 }
 
 macro_rules! respond_status {
@@ -224,7 +227,7 @@ async fn push_to_subscribers(
 async fn process_control(
     mut stream: Box<dyn StreamHandler>,
     client: ServerClient,
-    addr: SocketAddr,
+    addr: &str,
     acl: Arc<acl::Acl>,
     timeout: Duration,
 ) -> Result<(), Error> {
@@ -450,7 +453,29 @@ async fn process_control(
     Ok(())
 }
 
-async fn init_stream(
+async fn init_unix_stream(
+    mut client_stream: UnixStream,
+    timeout: Duration,
+) -> Result<(Box<dyn StreamHandler>, StreamType), Error> {
+    let mut greeting: [u8; 3] = [0; 3];
+    time::timeout(timeout, client_stream.read_exact(&mut greeting)).await??;
+    let header = &greeting[0..2];
+    let stream_type = match greeting[0..2].try_into().unwrap() {
+        CONTROL_HEADER => StreamType::Control,
+        DATA_HEADER => StreamType::Data,
+        _ => {
+            return Err(Error::io(format!("Invalid greeting header: {:x?}", header)));
+        }
+    };
+    let mut stream: Box<dyn StreamHandler> = Box::new(SStream::new(client_stream, timeout));
+    let mut reply_header = Vec::new();
+    reply_header.extend(&greeting[..2]);
+    reply_header.extend(psrt::PROTOCOL_VERSION.to_le_bytes());
+    stream.write(&reply_header).await?;
+    Ok((stream, stream_type))
+}
+
+async fn init_tcp_stream(
     mut client_stream: TcpStream,
     addr: SocketAddr,
     timeout: Duration,
@@ -509,7 +534,41 @@ pub async fn get_acl(login: &str) -> Option<Arc<acl::Acl>> {
     acl_db!().get_acl(if login.is_empty() { "_" } else { login })
 }
 
-async fn handle_stream(
+async fn handle_unix_stream(
+    client_stream: UnixStream,
+    path: &str,
+    timeout: Duration,
+) -> Result<bool, Error> {
+    let (mut stream, st) = init_unix_stream(client_stream, timeout).await?;
+    if st == StreamType::Data {
+        launch_data_stream(stream, timeout).await?;
+        return Ok(false);
+    }
+    let frame = stream.read_frame(Some(MAX_AUTH_FRAME_SIZE)).await?;
+    let mut sp = frame.splitn(2, |n| *n == 0);
+    let login = std::str::from_utf8(
+        sp.next()
+            .ok_or_else(|| Error::invalid_data(ERR_INVALID_DATA_BLOCK))?,
+    )?;
+    let client = { dbm!().register_client(login, path) }?;
+    stream.write(client.token_as_bytes()).await?;
+    let result = process_control(
+        stream,
+        client.clone(),
+        path,
+        acl::Acl::new_full().into(),
+        timeout,
+    )
+    .await;
+    {
+        dbm!().unregister_client(&client);
+        client.abort_tasks();
+    }
+    result?;
+    Ok(true)
+}
+
+async fn handle_tcp_stream(
     client_stream: TcpStream,
     addr: SocketAddr,
     timeout: Duration,
@@ -517,7 +576,7 @@ async fn handle_stream(
     allow_no_tls: bool,
 ) -> Result<bool, Error> {
     let (mut stream, st) =
-        init_stream(client_stream, addr, timeout, acceptor, allow_no_tls).await?;
+        init_tcp_stream(client_stream, addr, timeout, acceptor, allow_no_tls).await?;
     if st == StreamType::Data {
         launch_data_stream(stream, timeout).await?;
         return Ok(false);
@@ -557,9 +616,9 @@ async fn handle_stream(
             format_login!(login)
         )));
     };
-    let client = { dbm!().register_client(login, addr) }?;
+    let client = { dbm!().register_client(login, &addr.to_string()) }?;
     stream.write(client.token_as_bytes()).await?;
-    let result = process_control(stream, client.clone(), addr, acl, timeout).await;
+    let result = process_control(stream, client.clone(), &addr.to_string(), acl, timeout).await;
     {
         dbm!().unregister_client(&client);
         client.abort_tasks();
@@ -610,7 +669,7 @@ async fn launch_data_stream(
                 });
                 client.register_task(pinger_fut);
                 let username = format_login!(client.login()).to_owned();
-                let addr = client.addr();
+                let addr = client.addr().to_owned();
                 let data_fut = tokio::spawn(async move {
                     if let Err(e) = handle_data_stream(
                         stream,
@@ -619,7 +678,7 @@ async fn launch_data_stream(
                         timeout,
                         beacon_interval,
                         &username,
-                        addr,
+                        &addr,
                     )
                     .await
                     {
@@ -645,7 +704,7 @@ async fn handle_data_stream(
     timeout: Duration,
     beacon_interval: Duration,
     username: &str,
-    addr: SocketAddr,
+    addr: &str,
 ) -> Result<(), Error> {
     macro_rules! eof_is_ok {
         ($result: expr) => {
@@ -847,11 +906,23 @@ async fn launch_server(
     } else {
         None
     };
-    let mut listeners = Vec::new();
+    let mut tcp_listeners = Vec::new();
+    let mut unix_listeners = Vec::new();
     for bind in Vec::from(config.proto.bind) {
-        info!("binding to: {}", bind);
-        let sock = TcpListener::bind(&bind).await?;
-        listeners.push(sock);
+        if is_unix_socket(&bind) {
+            info!("binding UNIX socket to: {}", bind);
+            let _ = tokio::fs::remove_file(&bind).await;
+            let sock = UnixListener::bind(&bind)?;
+            let mut permissions = tokio::fs::metadata(&bind).await?.permissions();
+            permissions.set_mode(0o777);
+            tokio::fs::set_permissions(&bind, permissions).await?;
+            UNIX_SOCKETS.lock().insert(bind.clone());
+            unix_listeners.push((sock, bind));
+        } else {
+            info!("binding TCP socket to: {}", bind);
+            let sock = TcpListener::bind(&bind).await?;
+            tcp_listeners.push(sock);
+        }
     }
     let mut udp_listeners = Vec::new();
     let udp_frame_size = config
@@ -888,7 +959,10 @@ async fn launch_server(
     if let Some(_configs) = replication_configs.take() {
         warn!("cluster feature is disabled");
     }
-    for listener in listeners {
+    for (listener, path) in unix_listeners {
+        tokio::spawn(handle_unix_listener(listener, path, timeout));
+    }
+    for listener in tcp_listeners {
         tokio::spawn(handle_tcp_listener(
             listener,
             acceptor.clone(),
@@ -905,6 +979,27 @@ async fn launch_server(
     }
 }
 
+async fn handle_unix_listener(listener: UnixListener, path: String, timeout: Duration) {
+    loop {
+        let path_c = path.clone();
+        match listener.accept().await {
+            Ok((stream, _)) => {
+                tokio::spawn(async move {
+                    info!("Client connected: {}", path_c);
+                    match handle_unix_stream(stream, &path_c, timeout).await {
+                        Ok(true) => info!("Client disconnected: {}", path_c),
+                        Ok(false) => info!("Data stream launched for {}", path_c),
+                        Err(e) => error!("Client {} error. {}", path_c, e),
+                    }
+                });
+            }
+            Err(e) => {
+                error!("{}", e);
+            }
+        }
+    }
+}
+
 async fn handle_tcp_listener(
     listener: TcpListener,
     acceptor: Option<TlsAcceptor>,
@@ -917,7 +1012,7 @@ async fn handle_tcp_listener(
             Ok((stream, addr)) => {
                 tokio::spawn(async move {
                     info!("Client connected: {}", addr);
-                    match handle_stream(stream, addr, timeout, acc, allow_no_tls).await {
+                    match handle_tcp_stream(stream, addr, timeout, acc, allow_no_tls).await {
                         Ok(true) => info!("Client disconnected: {}", addr),
                         Ok(false) => info!("Data stream launched for {}", addr),
                         Err(e) => error!("Client {} error. {}", addr, e),
@@ -1102,6 +1197,7 @@ async fn terminate(allow_log: bool) {
     if allow_log {
         info!("terminating");
     }
+    cleanup();
     std::process::exit(0);
 }
 
@@ -1334,9 +1430,16 @@ fn main() {
             launch_server(config, timeout, tls_identity, replication_configs, license).await
         {
             error!("{}", e);
+            cleanup();
             std::process::exit(1);
         }
     });
+}
+
+fn cleanup() {
+    for sock in &*UNIX_SOCKETS.lock() {
+        let _ = std::fs::remove_file(sock);
+    }
 }
 
 mod stats {

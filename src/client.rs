@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, UnixStream};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tokio::time;
@@ -26,6 +26,7 @@ use crate::COMM_TLS;
 
 use crate::Message;
 
+use crate::is_unix_socket;
 use crate::RESPONSE_ERR_ACCESS;
 use crate::RESPONSE_NOT_REQUIRED;
 use crate::RESPONSE_OK;
@@ -315,43 +316,66 @@ impl Client {
         } else {
             None
         };
+        let is_unix = is_unix_socket(&config.path);
         // Connect control stream
         trace!("connecting control stream to {}", config.path);
         let op_start = Instant::now();
         let timeout = config.timeout;
-        let path_domain = config
-            .path
-            .rsplitn(2, ':')
-            .last()
-            .ok_or_else(|| Error::invalid_data("Invalid domain"))?;
-        let mut c_control_stream =
-            time::timeout(timeout, TcpStream::connect(&config.path)).await??;
-        c_control_stream.set_nodelay(true)?;
-        let mut greeting = Vec::new();
-        greeting.extend(crate::CONTROL_HEADER);
-        // switch to TLS if required
-        let mut control_stream: Box<dyn StreamHandler> = if let Some(ref builder) = tls_builder {
-            greeting.push(COMM_TLS);
-            trace!("Setting up TLS control connection");
-            time::timeout(
-                reduce_timeout(timeout, op_start),
-                c_control_stream.write_all(&greeting),
-            )
-            .await??;
-            let connector = TlsConnector::from(builder.build()?);
-            Box::new(SStream::new(
-                connector.connect(path_domain, c_control_stream).await?,
-                timeout,
-            ))
+        let path_domain = if is_unix {
+            None
         } else {
-            greeting.push(COMM_INSECURE);
-            trace!("Setting up insecure control connection");
-            time::timeout(
-                reduce_timeout(timeout, op_start),
-                c_control_stream.write_all(&greeting),
+            Some(
+                config
+                    .path
+                    .rsplitn(2, ':')
+                    .last()
+                    .ok_or_else(|| Error::invalid_data("Invalid domain"))?,
             )
-            .await??;
-            Box::new(SStream::new(c_control_stream, timeout))
+        };
+        let mut control_stream: Box<dyn StreamHandler> = {
+            let mut greeting = Vec::new();
+            greeting.extend(crate::CONTROL_HEADER);
+            if is_unix {
+                let mut c_control_stream =
+                    time::timeout(timeout, UnixStream::connect(&config.path)).await??;
+                greeting.push(COMM_INSECURE);
+                time::timeout(
+                    reduce_timeout(timeout, op_start),
+                    c_control_stream.write_all(&greeting),
+                )
+                .await??;
+                Box::new(SStream::new(c_control_stream, timeout))
+            } else {
+                let mut c_control_stream =
+                    time::timeout(timeout, TcpStream::connect(&config.path)).await??;
+                c_control_stream.set_nodelay(true)?;
+                // switch to TLS if required
+                if let Some(ref builder) = tls_builder {
+                    greeting.push(COMM_TLS);
+                    trace!("Setting up TLS control connection");
+                    time::timeout(
+                        reduce_timeout(timeout, op_start),
+                        c_control_stream.write_all(&greeting),
+                    )
+                    .await??;
+                    let connector = TlsConnector::from(builder.build()?);
+                    Box::new(SStream::new(
+                        connector
+                            .connect(path_domain.unwrap_or_default(), c_control_stream)
+                            .await?,
+                        timeout,
+                    ))
+                } else {
+                    greeting.push(COMM_INSECURE);
+                    trace!("Setting up insecure control connection");
+                    time::timeout(
+                        reduce_timeout(timeout, op_start),
+                        c_control_stream.write_all(&greeting),
+                    )
+                    .await??;
+                    Box::new(SStream::new(c_control_stream, timeout))
+                }
+            }
         };
         let mut buf: [u8; 2] = [0; 2];
         trace!("reading control header");
@@ -398,38 +422,57 @@ impl Client {
         }
         // Connect data stream if required
         let (data_fut, data_channel) = if config.need_data_stream {
-            trace!("connecting data stream to {}", config.path);
-            let mut c_data_stream = time::timeout(
-                reduce_timeout(timeout, op_start),
-                TcpStream::connect(&config.path),
-            )
-            .await??;
-            c_data_stream.set_nodelay(true)?;
             let mut greeting = Vec::new();
             greeting.extend(crate::DATA_HEADER);
-            // switch data stream to TLS if required
-            let mut data_stream: Box<dyn StreamHandler> = if let Some(ref builder) = tls_builder {
-                greeting.push(COMM_TLS);
-                trace!("Setting up TLS data connection");
-                time::timeout(
-                    reduce_timeout(timeout, op_start),
-                    c_data_stream.write_all(&greeting),
-                )
-                .await??;
-                let connector = TlsConnector::from(builder.build()?);
-                Box::new(SStream::new(
-                    connector.connect(path_domain, c_data_stream).await?,
-                    timeout,
-                ))
-            } else {
-                greeting.push(COMM_INSECURE);
-                trace!("Setting up insecure data connection");
-                time::timeout(
-                    reduce_timeout(timeout, op_start),
-                    c_data_stream.write_all(&greeting),
-                )
-                .await??;
-                Box::new(SStream::new(c_data_stream, timeout))
+            trace!("connecting data stream to {}", config.path);
+            let mut data_stream: Box<dyn StreamHandler> = {
+                if is_unix {
+                    let mut c_data_stream = time::timeout(
+                        reduce_timeout(timeout, op_start),
+                        UnixStream::connect(&config.path),
+                    )
+                    .await??;
+                    greeting.push(COMM_INSECURE);
+                    time::timeout(
+                        reduce_timeout(timeout, op_start),
+                        c_data_stream.write_all(&greeting),
+                    )
+                    .await??;
+                    Box::new(SStream::new(c_data_stream, timeout))
+                } else {
+                    let mut c_data_stream = time::timeout(
+                        reduce_timeout(timeout, op_start),
+                        TcpStream::connect(&config.path),
+                    )
+                    .await??;
+                    c_data_stream.set_nodelay(true)?;
+                    // switch data stream to TLS if required
+                    if let Some(ref builder) = tls_builder {
+                        greeting.push(COMM_TLS);
+                        trace!("Setting up TLS data connection");
+                        time::timeout(
+                            reduce_timeout(timeout, op_start),
+                            c_data_stream.write_all(&greeting),
+                        )
+                        .await??;
+                        let connector = TlsConnector::from(builder.build()?);
+                        Box::new(SStream::new(
+                            connector
+                                .connect(path_domain.unwrap_or_default(), c_data_stream)
+                                .await?,
+                            timeout,
+                        ))
+                    } else {
+                        greeting.push(COMM_INSECURE);
+                        trace!("Setting up insecure data connection");
+                        time::timeout(
+                            reduce_timeout(timeout, op_start),
+                            c_data_stream.write_all(&greeting),
+                        )
+                        .await??;
+                        Box::new(SStream::new(c_data_stream, timeout))
+                    }
+                }
             };
             let mut buf: [u8; 2] = [0; 2];
             trace!("reading data header");

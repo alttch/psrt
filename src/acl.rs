@@ -66,6 +66,18 @@ pub struct Acl {
 }
 
 impl Acl {
+    pub fn new_full() -> Self {
+        let mut read = HashSet::new();
+        let mut write = HashSet::new();
+        read.insert(PathMask::new_any());
+        write.insert(PathMask::new_any());
+        Self {
+            admin: true,
+            replicator: true,
+            read: Some(PathMaskList::new(read)),
+            write: Some(PathMaskList::new(write)),
+        }
+    }
     #[inline]
     pub fn allow_read(&self, topic: &str) -> bool {
         self.read.as_ref().map_or(false, |v| v.matches(topic))

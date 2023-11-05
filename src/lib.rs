@@ -249,6 +249,11 @@ impl fmt::Display for Error {
     }
 }
 
+#[allow(clippy::case_sensitive_file_extension_comparisons)]
+pub fn is_unix_socket(path: &str) -> bool {
+    path.ends_with(".sock") || path.ends_with(".socket")
+}
+
 #[cfg(feature = "server")]
 pub mod acl;
 pub mod client;
