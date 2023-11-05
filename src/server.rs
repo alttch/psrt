@@ -914,7 +914,7 @@ async fn launch_server(
             let _ = tokio::fs::remove_file(&bind).await;
             let sock = UnixListener::bind(&bind)?;
             let mut permissions = tokio::fs::metadata(&bind).await?.permissions();
-            permissions.set_mode(0o777);
+            permissions.set_mode(0o770);
             tokio::fs::set_permissions(&bind, permissions).await?;
             UNIX_SOCKETS.lock().insert(bind.clone());
             unix_listeners.push((sock, bind));
