@@ -79,7 +79,7 @@ async-trait = "0.1.74"
 eva-sdk = "0.3.10"
 
 [features]
-default = ["server"]
+#default = ["server"]
 cluster = ["server"]
 cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
     "term_size", "prettytable-rs", "num-format", "getch", "rand",

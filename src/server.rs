@@ -831,7 +831,7 @@ struct ConfigServer {
     max_topic_depth: usize,
     max_pub_size: usize,
     max_topic_length: usize,
-    pid_file: String,
+    pid_file: Option<String>,
     bind_stats: Option<String>,
     license: Option<String>,
 }
@@ -953,14 +953,12 @@ async fn launch_server(
             *HOST_NAME.lock().unwrap() = name.to_owned();
         }
     }
-    info!("creating pid file {}, PID: {}", config.server.pid_file, pid);
+    let pid_file = config.server.pid_file.expect("PID file not specified");
+    info!("creating pid file {}, PID: {}", pid_file, pid);
     {
-        PID_FILE
-            .lock()
-            .await
-            .replace(config.server.pid_file.clone());
+        PID_FILE.lock().await.replace(pid_file.clone());
     }
-    tokio::fs::write(&config.server.pid_file, pid).await?;
+    tokio::fs::write(&pid_file, pid).await?;
     #[cfg(feature = "cluster")]
     if let Some(configs) = replication_configs.take() {
         psrt::replication::start(configs, _license).await;
