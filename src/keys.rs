@@ -2,6 +2,7 @@ use crate::token::Token;
 use crate::Error;
 use openssl::symm;
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 #[repr(u8)]
@@ -51,12 +52,12 @@ pub struct Key {
 
 #[derive(Default)]
 pub struct Keys {
-    key_file: Option<String>,
+    key_file: Option<PathBuf>,
     keys: Option<BTreeMap<String, Key>>,
 }
 
 impl Keys {
-    pub fn set_key_file(&mut self, path: &str) {
+    pub fn set_key_file(&mut self, path: &Path) {
         self.key_file.replace(path.to_owned());
     }
     /// # Errors
@@ -64,7 +65,7 @@ impl Keys {
     /// Will return err if the file is unable to be read or parsed
     pub async fn reload(&mut self) -> Result<(), Error> {
         if let Some(path) = self.key_file.as_ref() {
-            log::info!("loading key file {}", path);
+            log::info!("loading key file {}", path.to_string_lossy());
             let data = tokio::fs::read_to_string(path).await?;
             let keys: BTreeMap<String, String> = serde_yaml::from_str(&data)?;
             let mut key_map = BTreeMap::new();

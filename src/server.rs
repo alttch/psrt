@@ -34,7 +34,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -48,6 +48,8 @@ use tokio_native_tls::{native_tls, TlsAcceptor};
 static ERR_INVALID_DATA_BLOCK: &str = "Invalid data block";
 const MAX_AUTH_FRAME_SIZE: usize = 1024;
 const DEFAULT_UDP_FRAME_SIZE: u16 = 4096;
+const DEFAULT_TIMEOUT_SECS: f64 = 5.0;
+const DEFAULT_STANDALONE_WORKERS: usize = 1;
 
 static ALLOW_ANONYMOUS: atomic::AtomicBool = atomic::AtomicBool::new(false);
 static MAX_PUB_SIZE: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
@@ -809,7 +811,7 @@ struct ConfigProto {
     bind: StringOrList,
     bind_udp: StringOrList,
     udp_frame_size: Option<u16>,
-    timeout: f64,
+    timeout: Option<f64>,
     tls_pkcs12: Option<String>,
     tls_cert: Option<String>,
     tls_key: Option<String>,
@@ -821,7 +823,7 @@ struct ConfigProto {
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 struct ConfigServer {
-    workers: usize,
+    workers: Option<usize>,
     latency_warn: u32,
     data_queue: usize,
     max_topic_depth: usize,
@@ -1225,9 +1227,192 @@ macro_rules! handle_term_signal {
     };
 }
 
-#[allow(clippy::too_many_lines)]
+fn format_path(path: &str, cdir: &Path) -> PathBuf {
+    if path.starts_with(&['/', '.'][..]) {
+        Path::new(path).to_owned()
+    } else {
+        let mut p = cdir.to_owned();
+        p.push(path);
+        p
+    }
+}
+
+async fn prepare_tls_identity(
+    config_proto: &ConfigProto,
+    cdir: &Path,
+) -> Option<native_tls::Identity> {
+    if let Some(ref tls_pkcs12) = config_proto.tls_pkcs12 {
+        let p12_path = format_path(tls_pkcs12, cdir);
+        info!("loading TLS PKCS12 {}", p12_path.to_string_lossy());
+        let p12 = tokio::fs::read(p12_path)
+            .await
+            .expect("Unable to load TLS PKCS12");
+        Some(native_tls::Identity::from_pkcs12(&p12, "").unwrap())
+    } else if let Some(ref tls_cert) = config_proto.tls_cert {
+        let cert_path = format_path(tls_cert, cdir);
+        info!("loading TLS cert {}", cert_path.to_string_lossy());
+        let cert = tokio::fs::read(cert_path)
+            .await
+            .expect("Unable to load TLS cert");
+        let key_path = format_path(
+            config_proto
+                .tls_key
+                .as_ref()
+                .expect("TLS key not specified"),
+            cdir,
+        );
+        info!("loading TLS key {}", key_path.to_string_lossy());
+        let key = tokio::fs::read(key_path)
+            .await
+            .expect("Unable to load TLS key");
+        let priv_key = openssl::pkey::PKey::private_key_from_pem(&key).unwrap();
+        Some(
+            native_tls::Identity::from_pkcs8(&cert, &priv_key.private_key_to_pem_pkcs8().unwrap())
+                .unwrap(),
+        )
+    } else {
+        None
+    }
+}
+
+async fn prepare_replication_configs(
+    config_cluster: Option<&ConfigCluster>,
+    cdir: &Path,
+    timeout: Duration,
+    queue_size: usize,
+) -> Option<Vec<psrt::client::Config>> {
+    if let Some(c) = config_cluster {
+        let fname = format_path(&c.config, cdir);
+        info!("loading cluster config {}", fname.to_string_lossy());
+        let cfg = tokio::fs::read_to_string(fname).await.unwrap();
+        let mut cfgs: Vec<psrt::client::Config> = serde_yaml::from_str(&cfg).unwrap();
+        let mut configs = Vec::new();
+        while !cfgs.is_empty() {
+            let mut c = cfgs.remove(0);
+            if let Some(tls_ca) = c.tls_ca() {
+                c.update_tls_ca(
+                    tokio::fs::read_to_string(format_path(tls_ca, cdir))
+                        .await
+                        .unwrap(),
+                );
+            }
+            c = c.set_queue_size(queue_size);
+            c = c.set_timeout(timeout);
+            configs.push(c);
+        }
+        Some(configs)
+    } else {
+        None
+    }
+}
+
+async fn load_license(license: Option<&str>, cdir: &Path) -> Option<String> {
+    if let Some(f) = license {
+        let fname = format_path(f, cdir);
+        info!("reading license file {}", fname.to_string_lossy());
+        Some(tokio::fs::read_to_string(fname).await.unwrap())
+    } else {
+        None
+    }
+}
+
+macro_rules! reload_db {
+    ($db: expr) => {
+        if let Err(e) = $db.reload().await {
+            error!("Unable to load config: {}", e);
+        }
+    };
+}
+
+async fn launch(
+    config: Config,
+    cdir: PathBuf,
+    timeout: Duration,
+    workers: usize,
+    register_signals: bool,
+) {
+    let tls_identity: Option<native_tls::Identity> =
+        prepare_tls_identity(&config.proto, &cdir).await;
+    let replication_configs = prepare_replication_configs(
+        config.cluster.as_ref(),
+        &cdir,
+        timeout,
+        config.server.data_queue,
+    )
+    .await;
+    let license = load_license(config.server.license.as_deref(), &cdir).await;
+    psrt::pubsub::set_latency_warn(config.server.latency_warn);
+    psrt::pubsub::set_data_queue_size(config.server.data_queue);
+    ALLOW_ANONYMOUS.store(config.auth.allow_anonymous, atomic::Ordering::SeqCst);
+    MAX_TOPIC_LENGTH.store(config.server.max_topic_length, atomic::Ordering::SeqCst);
+    MAX_PUB_SIZE.store(config.server.max_pub_size, atomic::Ordering::SeqCst);
+    psrt::pubsub::set_max_topic_depth(config.server.max_topic_depth);
+    {
+        let mut acl = ACL_DB.write().await;
+        acl.set_path(&format_path(&config.auth.acl, &cdir));
+        acl.reload().await.unwrap();
+    }
+    if let Some(ref f) = config.auth.password_file {
+        let mut passwords = PASSWORD_DB.write().await;
+        let password_file = format_path(f, &cdir);
+        passwords.set_password_file(&password_file);
+        reload_db!(passwords);
+    }
+    if let Some(ref f) = config.auth.key_file {
+        let mut keys = KEY_DB.write().await;
+        let key_file = format_path(f, &cdir);
+        keys.set_key_file(&key_file);
+        reload_db!(keys);
+    }
+    if register_signals {
+        handle_term_signal!(SignalKind::interrupt(), false);
+        handle_term_signal!(SignalKind::terminate(), true);
+        tokio::spawn(async move {
+            let kind = SignalKind::hangup();
+            trace!("starting handler for {:?}", kind);
+            loop {
+                match signal(kind) {
+                    Ok(mut v) => {
+                        v.recv().await;
+                    }
+                    Err(e) => {
+                        error!("Unable to bind to signal {:?}: {}", kind, e);
+                        break;
+                    }
+                }
+                trace!("got hangup signal, reloading configs");
+                {
+                    if let Err(e) = acl_dbm!().reload().await {
+                        error!("ACL reload failed: {}", e);
+                    }
+                    {
+                        reload_db!(PASSWORD_DB.write().await);
+                    }
+                    {
+                        reload_db!(KEY_DB.write().await);
+                    }
+                }
+            }
+        });
+    }
+    if let Some(ref bind_stats) = config.server.bind_stats {
+        stats::start(bind_stats);
+    }
+    info!(
+        "starting server, workers: {}, timeout: {:?}",
+        workers, timeout
+    );
+    if let Err(e) = launch_server(config, timeout, tls_identity, replication_configs, license).await
+    {
+        error!("{}", e);
+        cleanup();
+        std::process::exit(1);
+    }
+}
+
 fn main() {
     let opts = Opts::parse();
+    // standalone-specific
     if opts.verbose {
         set_verbose_logger(LevelFilter::Trace);
     } else if (!opts.daemonize
@@ -1286,154 +1471,25 @@ fn main() {
         .expect("Unable to get config dir")
         .canonicalize()
         .expect("Unable to parse config path");
-    macro_rules! format_path {
-        ($path: expr) => {
-            if $path.starts_with(&['/', '.'][..]) {
-                $path.to_string()
-            } else {
-                format!("{}/{}", cdir.to_str().unwrap(), $path)
-            }
-        };
-    }
     let config: Config = serde_yaml::from_str(&cfg).unwrap();
     if config.proto.fips {
         openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140");
         info!("OpenSSL FIPS 140 enabled");
     }
-    let tls_identity: Option<native_tls::Identity> = if let Some(ref tls_pkcs12) =
-        config.proto.tls_pkcs12
-    {
-        let p12_path = format_path!(tls_pkcs12);
-        info!("loading TLS PKCS12 {}", p12_path);
-        let p12 = std::fs::read(p12_path).expect("Unable to load TLS PKCS12");
-        Some(native_tls::Identity::from_pkcs12(&p12, "").unwrap())
-    } else if let Some(ref tls_cert) = config.proto.tls_cert {
-        let cert_path = format_path!(tls_cert);
-        info!("loading TLS cert {}", cert_path);
-        let cert = std::fs::read(cert_path).expect("Unable to load TLS cert");
-        let key_path = format_path!(config
-            .proto
-            .tls_key
-            .as_ref()
-            .expect("TLS key not specified"));
-        info!("loading TLS key {}", key_path);
-        let key = std::fs::read(key_path).expect("Unable to load TLS key");
-        let priv_key = openssl::pkey::PKey::private_key_from_pem(&key).unwrap();
-        Some(
-            native_tls::Identity::from_pkcs8(&cert, &priv_key.private_key_to_pem_pkcs8().unwrap())
-                .unwrap(),
-        )
-    } else {
-        None
-    };
-    let timeout = Duration::from_secs_f64(config.proto.timeout);
-    let replication_configs = config.cluster.as_ref().map(|c| {
-        let fname = format_path!(c.config);
-        info!("loading cluster config {}", fname);
-        let cfg = std::fs::read_to_string(fname).unwrap();
-        let mut cfgs: Vec<psrt::client::Config> = serde_yaml::from_str(&cfg).unwrap();
-        let mut configs = Vec::new();
-        while !cfgs.is_empty() {
-            let mut c = cfgs.remove(0);
-            if let Some(tls_ca) = c.tls_ca() {
-                c.update_tls_ca(std::fs::read_to_string(format_path!(tls_ca)).unwrap());
-            }
-            c = c.set_queue_size(config.server.data_queue);
-            c = c.set_timeout(timeout);
-            configs.push(c);
-        }
-        configs
-    });
-    let license = config.server.license.as_ref().map(|f| {
-        let fname = format_path!(f);
-        info!("reading license file {}", fname);
-        std::fs::read_to_string(fname).unwrap()
-    });
-    psrt::pubsub::set_latency_warn(config.server.latency_warn);
-    psrt::pubsub::set_data_queue_size(config.server.data_queue);
-    ALLOW_ANONYMOUS.store(config.auth.allow_anonymous, atomic::Ordering::SeqCst);
-    MAX_TOPIC_LENGTH.store(config.server.max_topic_length, atomic::Ordering::SeqCst);
-    MAX_PUB_SIZE.store(config.server.max_pub_size, atomic::Ordering::SeqCst);
-    psrt::pubsub::set_max_topic_depth(config.server.max_topic_depth);
+    let timeout = Duration::from_secs_f64(config.proto.timeout.unwrap_or(DEFAULT_TIMEOUT_SECS));
     if opts.daemonize {
         if let Ok(fork::Fork::Child) = fork::daemon(true, false) {
             std::process::exit(0);
         }
     }
+    // end standalone-specific
+    let workers = config.server.workers.unwrap_or(DEFAULT_STANDALONE_WORKERS);
     let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(config.server.workers)
+        .worker_threads(workers)
         .enable_all()
         .build()
         .unwrap();
-    macro_rules! reload_db {
-        ($db: expr) => {
-            if let Err(e) = $db.reload().await {
-                error!("Unable to load config: {}", e);
-            }
-        };
-    }
-    rt.block_on(async move {
-        {
-            let mut acl = ACL_DB.write().await;
-            acl.set_path(&format_path!(config.auth.acl));
-            acl.reload().await.unwrap();
-        }
-        if let Some(ref f) = config.auth.password_file {
-            let mut passwords = PASSWORD_DB.write().await;
-            let password_file = format_path!(f.clone());
-            passwords.set_password_file(&password_file);
-            reload_db!(passwords);
-        }
-        if let Some(ref f) = config.auth.key_file {
-            let mut keys = KEY_DB.write().await;
-            let key_file = format_path!(f.clone());
-            keys.set_key_file(&key_file);
-            reload_db!(keys);
-        }
-        handle_term_signal!(SignalKind::interrupt(), false);
-        handle_term_signal!(SignalKind::terminate(), true);
-        tokio::spawn(async move {
-            let kind = SignalKind::hangup();
-            trace!("starting handler for {:?}", kind);
-            loop {
-                match signal(kind) {
-                    Ok(mut v) => {
-                        v.recv().await;
-                    }
-                    Err(e) => {
-                        error!("Unable to bind to signal {:?}: {}", kind, e);
-                        break;
-                    }
-                }
-                trace!("got hangup signal, reloading configs");
-                {
-                    if let Err(e) = acl_dbm!().reload().await {
-                        error!("ACL reload failed: {}", e);
-                    }
-                    {
-                        reload_db!(PASSWORD_DB.write().await);
-                    }
-                    {
-                        reload_db!(KEY_DB.write().await);
-                    }
-                }
-            }
-        });
-        if let Some(ref bind_stats) = config.server.bind_stats {
-            stats::start(bind_stats);
-        }
-        info!(
-            "starting server, workers: {}, timeout: {:?}",
-            config.server.workers, timeout
-        );
-        if let Err(e) =
-            launch_server(config, timeout, tls_identity, replication_configs, license).await
-        {
-            error!("{}", e);
-            cleanup();
-            std::process::exit(1);
-        }
-    });
+    rt.block_on(launch(config, cdir, timeout, workers, true));
 }
 
 fn cleanup() {

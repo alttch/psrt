@@ -9,6 +9,7 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use std::path::{Path, PathBuf};
 
 static ERR_PATH_MASK_EMPTY: &str = "Empty path mask";
 
@@ -19,7 +20,7 @@ lazy_static::lazy_static! {
 #[derive(Debug, Default)]
 pub struct Db {
     acls: BTreeMap<String, Arc<Acl>>,
-    path: String,
+    path: PathBuf,
 }
 
 impl Db {
@@ -32,14 +33,14 @@ impl Db {
         self.acls.contains_key(user)
     }
     #[inline]
-    pub fn set_path(&mut self, path: &str) {
+    pub fn set_path(&mut self, path: &Path) {
         self.path = path.to_owned();
     }
     /// # Errors
     ///
     /// Will return err on file read / deserialize error
     pub async fn reload(&mut self) -> Result<(), Error> {
-        info!("loading ACL {}", self.path);
+        info!("loading ACL {}", self.path.to_string_lossy());
         let acls: BTreeMap<String, Acl> =
             serde_yaml::from_str(&tokio::fs::read_to_string(&self.path).await?)?;
         self.acls.clear();
