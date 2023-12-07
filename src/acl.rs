@@ -1,6 +1,7 @@
 // TODO migrate to eva-common when released
 use crate::Error;
 use log::{info, trace};
+use once_cell::sync::Lazy;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
@@ -13,9 +14,7 @@ use tokio::sync::RwLock;
 
 static ERR_PATH_MASK_EMPTY: &str = "Empty path mask";
 
-lazy_static::lazy_static! {
-    pub static ref ACL_DB: RwLock<Db> = RwLock::new(<_>::default());
-}
+pub static ACL_DB: Lazy<RwLock<Db>> = Lazy::new(<_>::default);
 
 #[derive(Debug, Default)]
 pub struct Db {

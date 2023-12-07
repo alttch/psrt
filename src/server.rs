@@ -1,10 +1,9 @@
-#[macro_use]
-extern crate lazy_static;
 use chrono::prelude::*;
 use clap::Clap;
 use colored::Colorize;
 use log::{error, info, trace, warn};
 use log::{Level, LevelFilter};
+use once_cell::sync::{Lazy, OnceCell};
 use psrt::acl::{self, ACL_DB};
 use psrt::comm::{SStream, StreamHandler};
 use psrt::is_unix_socket;
@@ -84,19 +83,19 @@ macro_rules! acl_db {
 
 macro_rules! dbm {
     () => {
-        DB.write().unwrap()
+        DB.write()
     };
 }
 
 macro_rules! db {
     () => {
-        DB.read().unwrap()
+        DB.read()
     };
 }
 
 macro_rules! stats_counters {
     () => {
-        STATS_COUNTERS.write().unwrap()
+        STATS_COUNTERS.write()
     };
 }
 
@@ -110,18 +109,16 @@ macro_rules! format_login {
     };
 }
 
-lazy_static! {
-    // keep async as internal functions have async/io
-    static ref PASSWORD_DB: RwLock<psrt::passwords::Passwords> = <_>::default();
-    static ref KEY_DB: RwLock<psrt::keys::Keys> = <_>::default();
-    static ref DB: std::sync::RwLock<ServerClientDB> = <_>::default();
-    static ref STATS_COUNTERS: std::sync::RwLock<Counters> = <_>::default();
-    // keep async as it's used to block multiple term handlers
-    static ref PID_FILE: Mutex<Option<String>> = <_>::default();
-    static ref HOST_NAME: std::sync::Mutex<String> = std::sync::Mutex::new("unknown".to_owned());
-    static ref UPTIME: Instant = Instant::now();
-    static ref UNIX_SOCKETS: parking_lot::Mutex<BTreeSet<PathBuf>> = <_>::default();
-}
+// keep async as internal functions have async/io
+static PASSWORD_DB: Lazy<RwLock<psrt::passwords::Passwords>> = Lazy::new(<_>::default);
+static KEY_DB: Lazy<RwLock<psrt::keys::Keys>> = Lazy::new(<_>::default);
+static DB: Lazy<parking_lot::RwLock<ServerClientDB>> = Lazy::new(<_>::default);
+static STATS_COUNTERS: Lazy<parking_lot::RwLock<Counters>> = Lazy::new(<_>::default);
+// keep async as it's used to block multiple term handlers
+static PID_FILE: Lazy<Mutex<Option<String>>> = Lazy::new(<_>::default);
+static HOST_NAME: OnceCell<String> = OnceCell::new();
+static UPTIME: Lazy<Instant> = Lazy::new(Instant::now);
+static UNIX_SOCKETS: Lazy<parking_lot::Mutex<BTreeSet<PathBuf>>> = Lazy::new(<_>::default);
 
 macro_rules! respond_status {
     ($stream: expr, $status: expr) => {
@@ -152,19 +149,19 @@ pub struct ServerStatus {
     time: u64,
     uptime: u64,
     data_queue_size: usize,
-    host: String,
+    host: &'static str,
     version: String,
     counters: Counters,
     clients: ServerClientDBStats,
     #[cfg(feature = "cluster")]
     cluster: Option<BTreeMap<String, psrt::replication::NodeStatus>>,
     #[cfg(not(feature = "cluster"))]
-    cluster: Option<bool>,
+    cluster: Option<()>,
 }
 
 #[allow(clippy::unused_async)]
 async fn get_status() -> ServerStatus {
-    let counters = { stats_counters!().clone() };
+    let counters = { STATS_COUNTERS.read().clone() };
     let clients = { db!().get_stats() };
     #[cfg(feature = "cluster")]
     let cluster = psrt::replication::status().await;
@@ -175,7 +172,7 @@ async fn get_status() -> ServerStatus {
         uptime: UPTIME.elapsed().as_secs(),
         version: psrt::VERSION.to_owned(),
         data_queue_size: psrt::pubsub::get_data_queue_size(),
-        host: HOST_NAME.lock().unwrap().clone(),
+        host: HOST_NAME.get().unwrap(),
         counters,
         clients,
         cluster,
@@ -927,11 +924,6 @@ async fn launch_server(
     } else {
         None
     };
-    if let Ok(name) = hostname::get() {
-        if let Some(name) = name.to_str() {
-            *HOST_NAME.lock().unwrap() = name.to_owned();
-        }
-    }
     let udp_frame_size = config
         .proto
         .udp_frame_size
@@ -1471,6 +1463,11 @@ async fn launch(
 }
 
 fn main() {
+    if let Ok(name) = hostname::get() {
+        HOST_NAME.set(name.to_string_lossy().to_string()).unwrap();
+    } else {
+        HOST_NAME.set("unknown".to_owned()).unwrap();
+    }
     let opts = Opts::parse();
     if opts.eva_svc {
         eva_sdk::service::svc_launch(eva_svc::main).unwrap();

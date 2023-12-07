@@ -14,7 +14,36 @@ struct Handlers {
 #[async_trait::async_trait]
 impl RpcHandlers for Handlers {
     async fn handle_call(&self, event: RpcEvent) -> RpcResult {
-        svc_handle_default_rpc(event.parse_method()?, &self.info)
+        let method = event.parse_method()?;
+        let payload = event.payload();
+        match method {
+            "stats.counters" => {
+                if payload.is_empty() {
+                    let s = { crate::STATS_COUNTERS.read().clone() };
+                    Ok(Some(pack(&s)?))
+                } else {
+                    Err(RpcError::params(None))
+                }
+            }
+            "stats.clients" => {
+                if payload.is_empty() {
+                    let s = { crate::DB.read().get_stats() };
+                    Ok(Some(pack(&s)?))
+                } else {
+                    Err(RpcError::params(None))
+                }
+            }
+            #[cfg(feature = "cluster")]
+            "stats.cluster" => {
+                if payload.is_empty() {
+                    let s = psrt::replication::status().await;
+                    Ok(Some(pack(&s)?))
+                } else {
+                    Err(RpcError::params(None))
+                }
+            }
+            _ => svc_handle_default_rpc(method, &self.info),
+        }
     }
 }
 
@@ -25,7 +54,11 @@ pub async fn main(mut initial: Initial) -> EResult<()> {
             .take_config()
             .ok_or_else(|| Error::invalid_data("config not specified"))?,
     )?;
-    let info = ServiceInfo::new(AUTHOR, psrt::VERSION, DESCRIPTION);
+    let mut info = ServiceInfo::new(AUTHOR, psrt::VERSION, DESCRIPTION);
+    info.add_method(ServiceMethod::new("stats.counters"));
+    info.add_method(ServiceMethod::new("stats.clients"));
+    #[cfg(feature = "cluster")]
+    info.add_method(ServiceMethod::new("stats.cluster"));
     let rpc = initial.init_rpc(Handlers { info }).await?;
     let client = rpc.client().clone();
     svc_init_logs(&initial, client.clone())?;
