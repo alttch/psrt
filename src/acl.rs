@@ -6,10 +6,10 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::path::{Path, PathBuf};
 
 static ERR_PATH_MASK_EMPTY: &str = "Empty path mask";
 

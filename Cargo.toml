@@ -76,9 +76,10 @@ submap = { version = "0.2.3", optional = true }
 jemallocator = { version = "0.3.2", optional = true }
 parking_lot = "0.12.1"
 async-trait = "0.1.74"
+eva-sdk = "0.3.10"
 
 [features]
-#default = ["server"]
+default = ["server"]
 cluster = ["server"]
 cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
     "term_size", "prettytable-rs", "num-format", "getch", "rand",

@@ -68,6 +68,8 @@ static APP_NAME: &str = "PSRT";
 
 use stats::Counters;
 
+mod eva_svc;
+
 macro_rules! acl_dbm {
     () => {
         ACL_DB.write().await
@@ -845,6 +847,7 @@ struct Config {
 
 #[derive(Clap)]
 #[clap(version = psrt::VERSION, author = psrt::AUTHOR, name = APP_NAME)]
+#[allow(clippy::struct_excessive_bools)]
 struct Opts {
     #[clap(short = 'C', long = "config")]
     config_file: Option<String>,
@@ -854,6 +857,11 @@ struct Opts {
     log_syslog: bool,
     #[clap(short = 'd', about = "Run in the background")]
     daemonize: bool,
+    #[clap(
+        long = "eva-svc",
+        about = "Run as EVA ICS v4 service (all other arguments are ignored)"
+    )]
+    eva_svc: bool,
 }
 
 struct SimpleLogger;
@@ -1324,23 +1332,40 @@ macro_rules! reload_db {
     };
 }
 
+struct AdditinalConfigs {
+    tls_identity: Option<native_tls::Identity>,
+    replication_configs: Option<Vec<psrt::client::Config>>,
+    license: Option<String>,
+}
+
+impl AdditinalConfigs {
+    async fn load(config: &Config, cdir: &Path, timeout: Duration) -> Self {
+        let tls_identity: Option<native_tls::Identity> =
+            prepare_tls_identity(&config.proto, cdir).await;
+        let replication_configs = prepare_replication_configs(
+            config.cluster.as_ref(),
+            cdir,
+            timeout,
+            config.server.data_queue,
+        )
+        .await;
+        let license = load_license(config.server.license.as_deref(), cdir).await;
+        Self {
+            tls_identity,
+            replication_configs,
+            license,
+        }
+    }
+}
+
 async fn launch(
     config: Config,
+    ac: AdditinalConfigs,
     cdir: PathBuf,
     timeout: Duration,
     workers: usize,
     register_signals: bool,
 ) {
-    let tls_identity: Option<native_tls::Identity> =
-        prepare_tls_identity(&config.proto, &cdir).await;
-    let replication_configs = prepare_replication_configs(
-        config.cluster.as_ref(),
-        &cdir,
-        timeout,
-        config.server.data_queue,
-    )
-    .await;
-    let license = load_license(config.server.license.as_deref(), &cdir).await;
     psrt::pubsub::set_latency_warn(config.server.latency_warn);
     psrt::pubsub::set_data_queue_size(config.server.data_queue);
     ALLOW_ANONYMOUS.store(config.auth.allow_anonymous, atomic::Ordering::SeqCst);
@@ -1402,7 +1427,14 @@ async fn launch(
         "starting server, workers: {}, timeout: {:?}",
         workers, timeout
     );
-    if let Err(e) = launch_server(config, timeout, tls_identity, replication_configs, license).await
+    if let Err(e) = launch_server(
+        config,
+        timeout,
+        ac.tls_identity,
+        ac.replication_configs,
+        ac.license,
+    )
+    .await
     {
         error!("{}", e);
         cleanup();
@@ -1412,84 +1444,93 @@ async fn launch(
 
 fn main() {
     let opts = Opts::parse();
-    // standalone-specific
-    if opts.verbose {
-        set_verbose_logger(LevelFilter::Trace);
-    } else if (!opts.daemonize
-        || std::env::var("DISABLE_SYSLOG").unwrap_or_else(|_| "0".to_owned()) == "1")
-        && !opts.log_syslog
-    {
-        set_verbose_logger(LevelFilter::Info);
+    if opts.eva_svc {
+        eva_sdk::service::svc_launch(eva_svc::main).unwrap();
     } else {
-        let formatter = syslog::Formatter3164 {
-            facility: syslog::Facility::LOG_USER,
-            hostname: None,
-            process: "psrtd".into(),
-            pid: 0,
+        // standalone-specific
+        if opts.verbose {
+            set_verbose_logger(LevelFilter::Trace);
+        } else if (!opts.daemonize
+            || std::env::var("DISABLE_SYSLOG").unwrap_or_else(|_| "0".to_owned()) == "1")
+            && !opts.log_syslog
+        {
+            set_verbose_logger(LevelFilter::Info);
+        } else {
+            let formatter = syslog::Formatter3164 {
+                facility: syslog::Facility::LOG_USER,
+                hostname: None,
+                process: "psrtd".into(),
+                pid: 0,
+            };
+            match syslog::unix(formatter) {
+                Ok(logger) => {
+                    log::set_boxed_logger(Box::new(syslog::BasicLogger::new(logger)))
+                        .map(|()| log::set_max_level(LevelFilter::Info))
+                        .unwrap();
+                }
+                Err(_) => {
+                    set_verbose_logger(LevelFilter::Info);
+                }
+            }
+        }
+        info!("version: {}", psrt::VERSION);
+        let (cfg, mut cfile) = if let Some(cfile) = opts.config_file {
+            info!("using config: {}", cfile);
+            (std::fs::read_to_string(&cfile).unwrap(), cfile)
+        } else {
+            let mut cfg = None;
+            let mut path: Option<String> = None;
+            for cfile in CONFIG_FILES {
+                match std::fs::read_to_string(cfile) {
+                    Ok(v) => {
+                        cfg = Some(v);
+                        path = Some((*cfile).to_string());
+                        break;
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(e) => {
+                        panic!("Unable to read {}: {}", cfile, e);
+                    }
+                }
+            }
+            (
+                cfg.unwrap_or_else(|| {
+                    panic!("Unable to read config ({})", CONFIG_FILES.join(", "))
+                }),
+                path.unwrap(),
+            )
         };
-        match syslog::unix(formatter) {
-            Ok(logger) => {
-                log::set_boxed_logger(Box::new(syslog::BasicLogger::new(logger)))
-                    .map(|()| log::set_max_level(LevelFilter::Info))
-                    .unwrap();
-            }
-            Err(_) => {
-                set_verbose_logger(LevelFilter::Info);
-            }
+        if !cfile.starts_with(&['.', '/'][..]) {
+            cfile = format!("./{}", cfile);
         }
-    }
-    info!("version: {}", psrt::VERSION);
-    let (cfg, mut cfile) = if let Some(cfile) = opts.config_file {
-        info!("using config: {}", cfile);
-        (std::fs::read_to_string(&cfile).unwrap(), cfile)
-    } else {
-        let mut cfg = None;
-        let mut path: Option<String> = None;
-        for cfile in CONFIG_FILES {
-            match std::fs::read_to_string(cfile) {
-                Ok(v) => {
-                    cfg = Some(v);
-                    path = Some((*cfile).to_string());
-                    break;
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => {
-                    panic!("Unable to read {}: {}", cfile, e);
-                }
+        let cdir = Path::new(&cfile)
+            .parent()
+            .expect("Unable to get config dir")
+            .canonicalize()
+            .expect("Unable to parse config path");
+        let config: Config = serde_yaml::from_str(&cfg).unwrap();
+        if config.proto.fips {
+            openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140");
+            info!("OpenSSL FIPS 140 enabled");
+        }
+        if opts.daemonize {
+            if let Ok(fork::Fork::Child) = fork::daemon(true, false) {
+                std::process::exit(0);
             }
         }
-        (
-            cfg.unwrap_or_else(|| panic!("Unable to read config ({})", CONFIG_FILES.join(", "))),
-            path.unwrap(),
-        )
-    };
-    if !cfile.starts_with(&['.', '/'][..]) {
-        cfile = format!("./{}", cfile);
+        // end standalone-specific
+        let timeout = Duration::from_secs_f64(config.proto.timeout.unwrap_or(DEFAULT_TIMEOUT_SECS));
+        let workers = config.server.workers.unwrap_or(DEFAULT_STANDALONE_WORKERS);
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(workers)
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async move {
+            let ac = AdditinalConfigs::load(&config, &cdir, timeout).await;
+            launch(config, ac, cdir, timeout, workers, true).await;
+        });
     }
-    let cdir = Path::new(&cfile)
-        .parent()
-        .expect("Unable to get config dir")
-        .canonicalize()
-        .expect("Unable to parse config path");
-    let config: Config = serde_yaml::from_str(&cfg).unwrap();
-    if config.proto.fips {
-        openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140");
-        info!("OpenSSL FIPS 140 enabled");
-    }
-    let timeout = Duration::from_secs_f64(config.proto.timeout.unwrap_or(DEFAULT_TIMEOUT_SECS));
-    if opts.daemonize {
-        if let Ok(fork::Fork::Child) = fork::daemon(true, false) {
-            std::process::exit(0);
-        }
-    }
-    // end standalone-specific
-    let workers = config.server.workers.unwrap_or(DEFAULT_STANDALONE_WORKERS);
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(workers)
-        .enable_all()
-        .build()
-        .unwrap();
-    rt.block_on(launch(config, cdir, timeout, workers, true));
 }
 
 fn cleanup() {
