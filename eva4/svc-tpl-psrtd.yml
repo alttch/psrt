@@ -1,0 +1,38 @@
+command: /usr/sbin/psrtd --eva-svc
+bus:
+  path: var/bus.ipc
+config:
+  # all paths in config are relative to EVA ICS directory if do not start with . or /
+  server:
+    latency_warn: 50000
+    # data stream queue, per client (server buffer)
+    # larger data queue - more ops/sec for clients, but higher latency
+    data_queue: 1024
+    max_topic_depth: 32
+    # max topic length, for bulk requests - total request length + 1 byte per topic
+    max_topic_length: 1000000
+    # max pub frame size (topic + data, bytes)
+    max_pub_size: 1100000
+    bind_stats: 0.0.0.0:8880
+  proto:
+    bind:
+      - 0.0.0.0:2873
+      - var/psrtd.sock
+    bind_udp: 0.0.0.0:2873
+    # max udp frame size
+    udp_frame_size: 4096
+    #tls_cert: /etc/psrtd/certs/server.crt
+    # only RSA private keys are supported
+    #tls_key: /etc/psrtd/certs/server.key
+    allow_no_tls: true
+  auth:
+    allow_anonymous: true
+    # use htpasswd -B to manage password file
+    password_file: /etc/psrtd/psrt-passwd
+    acl: /etc/psrtd/acl.yml
+    # AES keys for UDP encryption
+    #key_file: /etc/psrtd/keys.yml
+timeout:
+  default: 10
+user: nobody
+workers: 2

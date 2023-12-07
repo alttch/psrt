@@ -120,7 +120,7 @@ lazy_static! {
     static ref PID_FILE: Mutex<Option<String>> = <_>::default();
     static ref HOST_NAME: std::sync::Mutex<String> = std::sync::Mutex::new("unknown".to_owned());
     static ref UPTIME: Instant = Instant::now();
-    static ref UNIX_SOCKETS: parking_lot::Mutex<BTreeSet<String>> = <_>::default();
+    static ref UNIX_SOCKETS: parking_lot::Mutex<BTreeSet<PathBuf>> = <_>::default();
 }
 
 macro_rules! respond_status {
@@ -806,6 +806,15 @@ impl From<StringOrList> for Vec<String> {
     }
 }
 
+impl<'a> From<&'a StringOrList> for Vec<&'a str> {
+    fn from(l: &'a StringOrList) -> Self {
+        match l {
+            StringOrList::Single(ref s) => vec![s.as_str()],
+            StringOrList::Multiple(ref v) => v.iter().map(String::as_str).collect(),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 struct ConfigProto {
@@ -905,9 +914,11 @@ fn set_verbose_logger(filter: LevelFilter) {
 #[allow(clippy::too_many_lines)]
 async fn launch_server(
     config: Config,
+    listeners: Listeners,
     timeout: Duration,
     tls_identity: Option<native_tls::Identity>,
     mut replication_configs: Option<Vec<psrt::client::Config>>,
+    create_pid_file: bool,
     _license: Option<String>,
 ) -> Result<(), Error> {
     let allow_no_tls = config.proto.allow_no_tls;
@@ -916,49 +927,24 @@ async fn launch_server(
     } else {
         None
     };
-    let mut tcp_listeners = Vec::new();
-    let mut unix_listeners = Vec::new();
-    for bind in Vec::from(config.proto.bind) {
-        if is_unix_socket(&bind) {
-            info!("binding UNIX socket to: {}", bind);
-            let _ = tokio::fs::remove_file(&bind).await;
-            let sock = UnixListener::bind(&bind)?;
-            let mut permissions = tokio::fs::metadata(&bind).await?.permissions();
-            permissions.set_mode(0o770);
-            tokio::fs::set_permissions(&bind, permissions).await?;
-            UNIX_SOCKETS.lock().insert(bind.clone());
-            unix_listeners.push((sock, bind));
-        } else {
-            info!("binding TCP socket to: {}", bind);
-            let sock = TcpListener::bind(&bind).await?;
-            tcp_listeners.push(sock);
-        }
-    }
-    let mut udp_listeners = Vec::new();
-    let udp_frame_size = config
-        .proto
-        .udp_frame_size
-        .unwrap_or(DEFAULT_UDP_FRAME_SIZE);
-    for bind in Vec::from(config.proto.bind_udp) {
-        info!(
-            "binding UDP socket to: {}, max frame size: {}",
-            bind, udp_frame_size
-        );
-        let sock = UdpSocket::bind(bind).await?;
-        udp_listeners.push(sock);
-    }
-    let pid = std::process::id().to_string();
     if let Ok(name) = hostname::get() {
         if let Some(name) = name.to_str() {
             *HOST_NAME.lock().unwrap() = name.to_owned();
         }
     }
-    let pid_file = config.server.pid_file.expect("PID file not specified");
-    info!("creating pid file {}, PID: {}", pid_file, pid);
-    {
-        PID_FILE.lock().await.replace(pid_file.clone());
+    let udp_frame_size = config
+        .proto
+        .udp_frame_size
+        .unwrap_or(DEFAULT_UDP_FRAME_SIZE);
+    if create_pid_file {
+        let pid = std::process::id().to_string();
+        let pid_file = config.server.pid_file.expect("PID file not specified");
+        info!("creating pid file {}, PID: {}", pid_file, pid);
+        {
+            PID_FILE.lock().await.replace(pid_file.clone());
+        }
+        tokio::fs::write(&pid_file, pid).await?;
     }
-    tokio::fs::write(&pid_file, pid).await?;
     #[cfg(feature = "cluster")]
     if let Some(configs) = replication_configs.take() {
         psrt::replication::start(configs, _license).await;
@@ -967,10 +953,14 @@ async fn launch_server(
     if let Some(_configs) = replication_configs.take() {
         warn!("cluster feature is disabled");
     }
-    for (listener, path) in unix_listeners {
-        tokio::spawn(handle_unix_listener(listener, path, timeout));
+    for (listener, path) in listeners.unix {
+        tokio::spawn(handle_unix_listener(
+            listener,
+            path.to_string_lossy().to_string(),
+            timeout,
+        ));
     }
-    for listener in tcp_listeners {
+    for listener in listeners.tcp {
         tokio::spawn(handle_tcp_listener(
             listener,
             acceptor.clone(),
@@ -978,7 +968,7 @@ async fn launch_server(
             allow_no_tls,
         ));
     }
-    for listener in udp_listeners {
+    for listener in listeners.udp {
         tokio::spawn(handle_udp_listener(listener, udp_frame_size));
     }
     let sleep_step = std::time::Duration::from_secs(1);
@@ -1356,13 +1346,51 @@ impl AdditinalConfigs {
     }
 }
 
+struct Listeners {
+    tcp: Vec<TcpListener>,
+    udp: Vec<UdpSocket>,
+    unix: Vec<(UnixListener, PathBuf)>,
+}
+
+impl Listeners {
+    async fn create(config_proto: &ConfigProto, cdir: &Path) -> Result<Self, Error> {
+        let mut tcp = Vec::new();
+        let mut unix = Vec::new();
+        let mut udp = Vec::new();
+        for s_bind in Vec::from(&config_proto.bind) {
+            if is_unix_socket(s_bind) {
+                let bind = format_path(s_bind, cdir);
+                info!("binding UNIX socket to: {}", bind.to_string_lossy());
+                let _ = tokio::fs::remove_file(&bind).await;
+                let sock = UnixListener::bind(&bind)?;
+                let mut permissions = tokio::fs::metadata(&bind).await?.permissions();
+                permissions.set_mode(0o770);
+                tokio::fs::set_permissions(&bind, permissions).await?;
+                UNIX_SOCKETS.lock().insert(bind.clone());
+                unix.push((sock, bind.clone()));
+            } else {
+                info!("binding TCP socket to: {}", s_bind);
+                let sock = TcpListener::bind(s_bind).await?;
+                tcp.push(sock);
+            }
+        }
+        for bind in Vec::from(&config_proto.bind_udp) {
+            info!("binding UDP socket to: {}", bind);
+            let sock = UdpSocket::bind(bind).await?;
+            udp.push(sock);
+        }
+        Ok(Self { tcp, udp, unix })
+    }
+}
+
 async fn launch(
     config: Config,
     ac: AdditinalConfigs,
+    listeners: Listeners,
     cdir: PathBuf,
     timeout: Duration,
     workers: usize,
-    register_signals: bool,
+    standalone: bool,
 ) {
     psrt::pubsub::set_latency_warn(config.server.latency_warn);
     psrt::pubsub::set_data_queue_size(config.server.data_queue);
@@ -1373,7 +1401,7 @@ async fn launch(
     {
         let mut acl = ACL_DB.write().await;
         acl.set_path(&format_path(&config.auth.acl, &cdir));
-        acl.reload().await.unwrap();
+        acl.reload().await.expect("unable to reload ACL file");
     }
     if let Some(ref f) = config.auth.password_file {
         let mut passwords = PASSWORD_DB.write().await;
@@ -1387,7 +1415,7 @@ async fn launch(
         keys.set_key_file(&key_file);
         reload_db!(keys);
     }
-    if register_signals {
+    if standalone {
         handle_term_signal!(SignalKind::interrupt(), false);
         handle_term_signal!(SignalKind::terminate(), true);
         tokio::spawn(async move {
@@ -1427,9 +1455,11 @@ async fn launch(
     );
     if let Err(e) = launch_server(
         config,
+        listeners,
         timeout,
         ac.tls_identity,
         ac.replication_configs,
+        standalone,
         ac.license,
     )
     .await
@@ -1474,7 +1504,10 @@ fn main() {
         info!("version: {}", psrt::VERSION);
         let (cfg, mut cfile) = if let Some(cfile) = opts.config_file {
             info!("using config: {}", cfile);
-            (std::fs::read_to_string(&cfile).unwrap(), cfile)
+            (
+                std::fs::read_to_string(&cfile).expect("unable to read config"),
+                cfile,
+            )
         } else {
             let mut cfg = None;
             let mut path: Option<String> = None;
@@ -1526,7 +1559,8 @@ fn main() {
             .unwrap();
         rt.block_on(async move {
             let ac = AdditinalConfigs::load(&config, &cdir, timeout).await;
-            launch(config, ac, cdir, timeout, workers, true).await;
+            let listeners = Listeners::create(&config.proto, &cdir).await.unwrap();
+            launch(config, ac, listeners, cdir, timeout, workers, true).await;
         });
     }
 }
