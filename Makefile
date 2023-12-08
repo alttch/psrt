@@ -52,7 +52,7 @@ pub-pkg:
 			psrt-${VERSION}-amd64-ubuntu20.04.deb
 
 release-enterprise:
-	cargo build --target x86_64-unknown-linux-musl --release --features cli,cluster,openssl-vendored
+	cross build --target x86_64-unknown-linux-musl --release --features cli,cluster,openssl-vendored
 	cargo build --release --features cluster,cli
 	cd make-deb && \
 		./build.sh enterprise && \
