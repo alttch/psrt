@@ -1463,12 +1463,12 @@ async fn launch(
 }
 
 fn main() {
+    let opts = Opts::parse();
     if let Ok(name) = hostname::get() {
         HOST_NAME.set(name.to_string_lossy().to_string()).unwrap();
     } else {
         HOST_NAME.set("unknown".to_owned()).unwrap();
     }
-    let opts = Opts::parse();
     if opts.eva_svc {
         eva_sdk::service::svc_launch(eva_svc::main).unwrap();
     } else {
