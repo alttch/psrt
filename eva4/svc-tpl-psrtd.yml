@@ -13,7 +13,7 @@ config:
     max_topic_length: 1000000
     # max pub frame size (topic + data, bytes)
     max_pub_size: 1100000
-    bind_stats: 0.0.0.0:8880
+    #bind_stats: 0.0.0.0:8880
   proto:
     bind:
       - 0.0.0.0:2873
