@@ -265,6 +265,7 @@ pub mod passwords;
 #[cfg(feature = "server")]
 pub mod pubsub;
 #[cfg(feature = "cluster")]
+#[path = "/opt/eva4-enterprise/psrt-licenser/src-include/replication.rs"]
 pub mod replication;
 #[cfg(any(feature = "server", feature = "cli"))]
 pub mod token;
