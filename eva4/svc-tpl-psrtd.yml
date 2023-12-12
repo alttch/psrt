@@ -17,7 +17,7 @@ config:
   proto:
     bind:
       - 0.0.0.0:2873
-      - var/psrtd.sock
+      - var/psrt.sock
     bind_udp: 0.0.0.0:2873
     # max udp frame size
     udp_frame_size: 4096
