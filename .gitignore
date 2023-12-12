@@ -1,4 +1,6 @@
 _build
 target
+target-aarch64-musl
+target-x86_64-musl
 license.key
 src/replication.rs

@@ -316,9 +316,9 @@ dependencies = [
 
 [[package]]
 name = "busrt"
-version = "0.4.7"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86a5ff051cf21c79116f5912c951d5bdee0e8bf53497f38bdce224509c2da5ff"
+checksum = "ee5f4261ec20cb308913175a3c988b2fbc885adf56a505d9b044499d5896d9f7"
 dependencies = [
  "async-channel",
  "async-io",
@@ -1568,7 +1568,7 @@ dependencies = [
 
 [[package]]
 name = "psrt"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "aes-gcm",
  "async-channel",
@@ -1582,6 +1582,7 @@ dependencies = [
  "clap_derive",
  "colored",
  "env_logger",
+ "eva-common",
  "eva-sdk",
  "fork",
  "getch",

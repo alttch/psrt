@@ -6,6 +6,7 @@ all:
 clean:
 	rm -rf _build
 	cargo clean
+	rm -rf target*
 
 tag:
 	git tag -a v${VERSION} -m v${VERSION}
@@ -30,17 +31,17 @@ pkg:
 	lsb_release -cs|grep ^focal$
 	rm -rf _build
 	mkdir -p _build
-	cross build --target x86_64-unknown-linux-musl --release --features server,cli,openssl-vendored
-	cross build --target aarch64-unknown-linux-musl --release --features server,cli,openssl-vendored
+	CARGO_TARGET_DIR=target-x86_64-musl cross build --target x86_64-unknown-linux-musl --release --features server,cli,openssl-vendored
+	CARGO_TARGET_DIR=target-aarch64-musl cross build --target aarch64-unknown-linux-musl --release --features server,cli,openssl-vendored
 	cargo build --release --features server,cli
-	cd target/x86_64-unknown-linux-musl/release && tar czvf ../../../_build/psrt-${VERSION}-x86_64-musl.tar.gz psrtd psrt-cli
-	cd target/aarch64-unknown-linux-musl/release && \
+	cd target-x86_64-musl/x86_64-unknown-linux-musl/release && tar czvf ../../../_build/psrt-${VERSION}-x86_64-musl.tar.gz psrtd psrt-cli
+	cd target-aarch64-musl/aarch64-unknown-linux-musl/release && \
 			aarch64-linux-gnu-strip psrtd && \
 			aarch64-linux-gnu-strip psrt-cli && \
 			tar czvf ../../../_build/psrt-${VERSION}-aarch64-musl.tar.gz psrtd psrt-cli
 
 debian-pkg:
-	cd make-deb && ./build.sh && mv psrt-${VERSION}-amd64.deb ../_build/
+	cd make-deb && TARGET_DIR=target-x86_64-musl ./build.sh && mv psrt-${VERSION}-amd64.deb ../_build/
 	cd make-deb && PACKAGE_SUFFIX=-ubuntu20.04 RUST_TARGET=. ./build.sh && \
 		mv psrt-${VERSION}-amd64-ubuntu20.04.deb ../_build/
 
@@ -55,7 +56,7 @@ release-enterprise:
 	DOCKER_OPTS="-v /opt/eva4-enterprise:/opt/eva4-enterprise" cross build --target x86_64-unknown-linux-musl --release --features cli,cluster,openssl-vendored
 	cargo build --release --features cluster,cli
 	cd make-deb && \
-		./build.sh enterprise && \
+		TARGET_DIR=target-x86_64-musl ./build.sh enterprise && \
 	  PACKAGE_SUFFIX=-ubuntu20.04 RUST_TARGET=. ./build.sh enterprise && \
 		gsutil cp -a public-read psrt-enterprise-${VERSION}-amd64.deb gs://pub.bma.ai/psrt-enterprise/ && \
 		gsutil cp -a public-read psrt-enterprise-${VERSION}-amd64-ubuntu20.04.deb gs://pub.bma.ai/psrt-enterprise/
