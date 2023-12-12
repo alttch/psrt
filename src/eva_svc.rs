@@ -69,11 +69,13 @@ pub async fn main(mut initial: Initial) -> EResult<()> {
         .timeout
         .map_or_else(|| initial.timeout(), Duration::from_secs_f64);
     let ac = crate::AdditinalConfigs::load(&config, &cdir, timeout).await;
-    initial.drop_privileges()?;
     let workers = usize::try_from(initial.workers()).unwrap();
     let listeners = crate::Listeners::create(&config.proto, &cdir)
         .await
         .map_err(Error::failed)?;
+    crate::load_acl(&config.auth, &cdir).await;
+    crate::load_auth(&config.auth, &cdir).await;
+    initial.drop_privileges()?;
     let server_fut = tokio::spawn(async move {
         crate::launch(config, ac, listeners, cdir, timeout, workers, false).await;
     });

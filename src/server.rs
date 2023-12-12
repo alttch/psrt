@@ -1375,6 +1375,27 @@ impl Listeners {
     }
 }
 
+async fn load_auth(config_auth: &ConfigAuth, cdir: &Path) {
+    if let Some(ref f) = config_auth.password_file {
+        let mut passwords = PASSWORD_DB.write().await;
+        let password_file = format_path(f, cdir);
+        passwords.set_password_file(&password_file);
+        reload_db!(passwords);
+    }
+    if let Some(ref f) = config_auth.key_file {
+        let mut keys = KEY_DB.write().await;
+        let key_file = format_path(f, cdir);
+        keys.set_key_file(&key_file);
+        reload_db!(keys);
+    }
+}
+
+async fn load_acl(config_auth: &ConfigAuth, cdir: &Path) {
+    let mut acl = ACL_DB.write().await;
+    acl.set_path(&format_path(&config_auth.acl, cdir));
+    acl.reload().await.expect("unable to reload ACL file");
+}
+
 async fn launch(
     config: Config,
     ac: AdditinalConfigs,
@@ -1390,24 +1411,9 @@ async fn launch(
     MAX_TOPIC_LENGTH.store(config.server.max_topic_length, atomic::Ordering::SeqCst);
     MAX_PUB_SIZE.store(config.server.max_pub_size, atomic::Ordering::SeqCst);
     psrt::pubsub::set_max_topic_depth(config.server.max_topic_depth);
-    {
-        let mut acl = ACL_DB.write().await;
-        acl.set_path(&format_path(&config.auth.acl, &cdir));
-        acl.reload().await.expect("unable to reload ACL file");
-    }
-    if let Some(ref f) = config.auth.password_file {
-        let mut passwords = PASSWORD_DB.write().await;
-        let password_file = format_path(f, &cdir);
-        passwords.set_password_file(&password_file);
-        reload_db!(passwords);
-    }
-    if let Some(ref f) = config.auth.key_file {
-        let mut keys = KEY_DB.write().await;
-        let key_file = format_path(f, &cdir);
-        keys.set_key_file(&key_file);
-        reload_db!(keys);
-    }
     if standalone {
+        load_acl(&config.auth, &cdir).await;
+        load_auth(&config.auth, &cdir).await;
         handle_term_signal!(SignalKind::interrupt(), false);
         handle_term_signal!(SignalKind::terminate(), true);
         tokio::spawn(async move {
