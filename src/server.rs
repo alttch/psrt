@@ -1544,12 +1544,7 @@ fn main() {
             .expect("Unable to parse config path");
         let config: Config = serde_yaml::from_str(&cfg).unwrap();
         if config.proto.fips {
-            #[cfg(not(feature = "openssl-vendored"))]
-            openssl::fips::enable(true).expect("Can not enable OpenSSL FIPS 140");
-            #[cfg(not(feature = "openssl-vendored"))]
-            info!("OpenSSL FIPS 140 enabled");
-            #[cfg(feature = "openssl-vendored")]
-            panic!("FIPS can not be enabled, consider using a native OS distribution");
+            eva_common::services::enable_fips().unwrap();
         }
         if opts.daemonize {
             if let Ok(fork::Fork::Child) = fork::daemon(true, false) {
