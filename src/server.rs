@@ -1603,6 +1603,7 @@ mod stats {
 
     use serde::Serialize;
     #[derive(Serialize, Debug, Clone, Default)]
+    #[allow(clippy::struct_field_names)]
     pub struct Counters {
         // counters
         c_sub_ops: u64,

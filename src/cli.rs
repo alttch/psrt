@@ -392,19 +392,17 @@ async fn main() {
             .unwrap();
         let client = Arc::new(client);
         tokio::spawn(async move {
-            loop {
-                signal(SignalKind::interrupt()).unwrap().recv().await;
-                client.bye().await.unwrap();
-                print!("{}[2J", 27 as char);
-                if let Ok(term) = std::env::var("TERM") {
-                    if term.starts_with("screen") {
-                        for s in &["reset", "cnorm"] {
-                            let _r = std::process::Command::new("tput").arg(s).spawn();
-                        }
+            signal(SignalKind::interrupt()).unwrap().recv().await;
+            client.bye().await.unwrap();
+            print!("{}[2J", 27 as char);
+            if let Ok(term) = std::env::var("TERM") {
+                if term.starts_with("screen") {
+                    for s in &["reset", "cnorm"] {
+                        let _r = std::process::Command::new("tput").arg(s).spawn();
                     }
                 }
-                std::process::exit(0);
             }
+            std::process::exit(0);
         });
         let mut last_refresh: Option<Instant> = None;
         let show_step = Duration::from_secs(1);
@@ -486,12 +484,10 @@ async fn main() {
             info!("Listening to {}...", topics.join(", "));
             client.subscribe_bulk(topics).await.unwrap();
             tokio::spawn(async move {
-                loop {
-                    signal(SignalKind::interrupt()).unwrap().recv().await;
-                    info!("terminating");
-                    client.bye().await.unwrap();
-                    std::process::exit(0);
-                }
+                signal(SignalKind::interrupt()).unwrap().recv().await;
+                info!("terminating");
+                client.bye().await.unwrap();
+                std::process::exit(0);
             });
             loop {
                 let message = data_channel.recv().await.unwrap();
