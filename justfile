@@ -61,3 +61,16 @@ release-enterprise:
         gsutil cp -a public-read psrt-enterprise-{{VERSION}}-amd64.deb gs://pub.bma.ai/psrt-enterprise/ && \
         gsutil cp -a public-read psrt-enterprise-{{VERSION}}-amd64-ubuntu20.04.deb gs://pub.bma.ai/psrt-enterprise/
     rci job run pub.bma.ai
+
+launch-test-server *ARGS:
+  cargo run --release --bin psrtd --features server -- --config ./test-configs/config.yml {{ARGS}}
+launch-test-cserver *ARGS:
+  cargo run --release --bin psrtd --features server,cluster -- --config ./test-configs/config.yml {{ARGS}}
+launch-test-cserver2 *ARGS:
+  cargo run --release --bin psrtd --features server,cluster -- --config ./test-configs/config2.yml {{ARGS}}
+launch-test-benchmark *ARGS:
+  cargo run --release --bin psrt-cli --features cli -- localhost:2873 --benchmark {{ARGS}}
+launch-test-top *ARGS:
+  cargo run --release --bin psrt-cli --features cli -- localhost:2873 -t '#' --top {{ARGS}}
+launch-test-client *ARGS:
+  cargo run --release --bin psrt-cli --features cli -- localhost:2873 {{ARGS}}
