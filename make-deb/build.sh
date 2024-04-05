@@ -39,4 +39,4 @@ Description: Industrial Pub-Sub server with minimal latency and MQTT-compatible 
 EOF
 ) > "./${TARGET}/DEBIAN/control"
 cp -vf ./debian/* "./${TARGET}/DEBIAN/"
-dpkg-deb --build "./${TARGET}"
+dpkg-deb --build --root-owner-group "./${TARGET}"
