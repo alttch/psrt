@@ -46,7 +46,7 @@ debian-pkg:
         mv psrt-{{VERSION}}-amd64-ubuntu20.04.deb ../_build/
 
 pub-pkg:
-    cd _build && echo "" | gh release create v$(VERSION) -t "v$(VERSION)" \
+    cd _build && echo "" | gh release create v{{VERSION}} -t "v{{VERSION}}" \
             psrt-{{VERSION}}-x86_64-musl.tar.gz \
             psrt-{{VERSION}}-aarch64-musl.tar.gz \
             psrt-{{VERSION}}-amd64.deb \
