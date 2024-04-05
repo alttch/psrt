@@ -51,6 +51,8 @@ pub-pkg:
             psrt-{{VERSION}}-aarch64-musl.tar.gz \
             psrt-{{VERSION}}-amd64.deb \
             psrt-{{VERSION}}-amd64-ubuntu20.04.deb
+    cd /opt/apt/repo && reprepro includedeb stable /opt/psrt/_build/psrt-{{VERSION}}-amd64-ubuntu20.04.deb
+    cd /opt/apt && just pub
 
 release-enterprise:
     DOCKER_OPTS="-v /opt/eva4-enterprise:/opt/eva4-enterprise" cross build --target x86_64-unknown-linux-musl --release --features cli,cluster,openssl-vendored
@@ -60,7 +62,8 @@ release-enterprise:
       PACKAGE_SUFFIX=-ubuntu20.04 RUST_TARGET=. ./build.sh enterprise && \
         gsutil cp -a public-read psrt-enterprise-{{VERSION}}-amd64.deb gs://pub.bma.ai/psrt-enterprise/ && \
         gsutil cp -a public-read psrt-enterprise-{{VERSION}}-amd64-ubuntu20.04.deb gs://pub.bma.ai/psrt-enterprise/
-    rci job run pub.bma.ai
+    cd /opt/apt/repo && reprepro includedeb stable /opt/psrt/_build/psrt-enterprise-{{VERSION}}-amd64-ubuntu20.04.deb
+    cd /opt/apt && just pub
 
 launch-test-server *ARGS:
   cargo run --release --bin psrtd --features server -- --config ./test-configs/config.yml {{ARGS}}
