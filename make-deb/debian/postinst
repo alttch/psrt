@@ -10,6 +10,7 @@ touch /etc/psrtd/psrt-passwd
 chmod 600 /etc/psrtd/psrt-passwd
 chown psrt /etc/psrtd/psrt-passwd
 systemctl enable psrtd
+if [ "$1" = "configure" ] && [ -z "$2" ]; then
 cat << EOF
 Service psrtd enabled
 
@@ -17,3 +18,6 @@ To start the server, execute
 
   systemctl start psrtd
 EOF
+elif [ "$1" = "configure" ] && [ -n "$2" ]; then
+  systemctl restart psrtd
+fi
