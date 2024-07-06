@@ -33,6 +33,7 @@ pkg:
     mkdir -p _build
     CARGO_TARGET_DIR=target-x86_64-musl cross build --target x86_64-unknown-linux-musl --release --features server,cli,openssl-vendored
     CARGO_TARGET_DIR=target-aarch64-musl cross build --target aarch64-unknown-linux-musl --release --features server,cli,openssl-vendored
+    test $(lsb_release -r -s) = "20.04"
     cargo build --release --features server,cli
     cd target-x86_64-musl/x86_64-unknown-linux-musl/release && tar czvf ../../../_build/psrt-{{VERSION}}-x86_64-musl.tar.gz psrtd psrt-cli
     cd target-aarch64-musl/aarch64-unknown-linux-musl/release && \
