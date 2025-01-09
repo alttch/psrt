@@ -1,6 +1,6 @@
 [package]
 name = "psrt"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 authors = ["Serhij S. <div@altertech.com>"]
 license = "Apache-2.0"
@@ -75,9 +75,9 @@ submap = { version = "0.2.3", optional = true }
 jemallocator = { version = "0.3.2", optional = true }
 parking_lot = { package = "parking_lot_rt", version = "0.12.1" }
 async-trait = "0.1.74"
-eva-sdk = "0.3.10"
+eva-sdk = { version = "^0.3.10", optional = true }
 once_cell = "1.18.0"
-eva-common = { version = "0.3.23", features = ["services"] }
+eva-common = { version = "^0.3.88", features = ["services", "fips"], optional = true }
 
 [features]
 #default = ["server"]
@@ -86,7 +86,8 @@ cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
     "term_size", "prettytable-rs", "num-format", "getch", "rand",
     "jemallocator"]
 server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork",
-    "hostname", "hyper", "serde_json", "syslog", "jemallocator", "submap/native-digest"]
+    "hostname", "hyper", "serde_json", "syslog", "jemallocator", "submap/native-digest",
+    "eva-common", "eva-sdk"]
 crypto = ["aes-gcm", "rand"]
 openssl-vendored = ["openssl/vendored", "eva-common/openssl-no-fips"]
 openssl3 = ["eva-common/openssl3"]
