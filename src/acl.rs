@@ -32,7 +32,7 @@ impl Db {
     }
     #[inline]
     pub fn set_path(&mut self, path: &Path) {
-        self.path = path.to_owned();
+        path.clone_into(&mut self.path);
     }
     /// # Errors
     ///

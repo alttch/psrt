@@ -160,6 +160,7 @@ impl Default for ServerClientDB {
 /// # Errors
 ///
 /// Will return Err if the topic is invalid
+#[allow(clippy::assigning_clones)]
 pub fn prepare_topic(topic: &str) -> Result<String, Error> {
     let mut result = topic.to_owned();
     while result.contains("//") {

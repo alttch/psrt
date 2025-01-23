@@ -218,8 +218,8 @@ impl Config {
     }
     #[inline]
     pub fn set_auth(mut self, user: &str, password: &str) -> Self {
-        self.user = user.to_owned();
-        self.password = password.to_owned();
+        user.clone_into(&mut self.user);
+        password.clone_into(&mut self.password);
         self
     }
     /// Do not connect the data socket
@@ -294,7 +294,7 @@ impl Config {
     /// Update path
     #[inline]
     pub fn update_path(&mut self, path: &str) {
-        self.path = path.to_owned();
+        path.clone_into(&mut self.path);
     }
 }
 
