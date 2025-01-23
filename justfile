@@ -17,10 +17,10 @@ release: tests pub tag pkg debian-pkg pub-pkg
 tests: run-tests clippy
 
 run-tests:
-    cargo test --features server
+    cargo test --features server,openssl3
 
 clippy:
-    clippy --features cli,cluster
+    clippy --features cli,cluster,openssl3
 
 pub: publish-cargo-crate
 

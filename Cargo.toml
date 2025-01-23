@@ -72,7 +72,7 @@ getch = { version = "0.2.1", optional = true }
 aes-gcm = { version = "0.9.4", optional = true }
 rand = { version = "0.8.4", optional = true }
 submap = { version = "0.2.3", optional = true }
-jemallocator = { version = "0.3.2", optional = true }
+mimalloc = { version = "0.1.43", optional = true }
 parking_lot = { package = "parking_lot_rt", version = "0.12.1" }
 async-trait = "0.1.74"
 eva-sdk = { version = "^0.3.10", optional = true }
@@ -82,13 +82,13 @@ eva-common = { version = "^0.3.88", features = ["services", "fips"], optional = 
 [features]
 #default = ["server"]
 cluster = ["server"]
-cli = ["bma-benchmark", "byte-unit", "clap", "clap_derive", "env_logger",
-    "term_size", "prettytable-rs", "num-format", "getch", "rand",
-    "jemallocator"]
-server = ["base64", "bcrypt", "clap", "clap_derive", "colored", "chrono", "fork",
-    "hostname", "hyper", "serde_json", "syslog", "jemallocator", "submap/native-digest",
-    "eva-common", "eva-sdk"]
-crypto = ["aes-gcm", "rand"]
+cli = ["dep:bma-benchmark", "dep:byte-unit", "dep:clap", "dep:clap_derive", "dep:env_logger",
+    "dep:term_size", "dep:prettytable-rs", "dep:num-format", "dep:getch", "dep:rand",
+    "dep:mimalloc"]
+server = ["dep:base64", "dep:bcrypt", "dep:clap", "dep:clap_derive", "dep:colored", "dep:chrono", "dep:fork",
+    "dep:hostname", "dep:hyper", "dep:serde_json", "dep:syslog", "dep:mimalloc", "submap/native-digest",
+    "dep:eva-common", "dep:eva-sdk"]
+crypto = ["dep:aes-gcm", "dep:rand"]
 openssl-vendored = ["openssl/vendored", "eva-common/openssl-no-fips"]
 openssl3 = ["eva-common/openssl3"]
 std-alloc = []
