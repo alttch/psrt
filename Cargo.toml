@@ -19,6 +19,10 @@ name = "udp_aes"
 path = "examples/udp_aes.rs"
 required-features = ["crypto"]
 
+[[example]]
+name = "udp_client"
+path = "examples/udp_client.rs"
+
 [lib]
 name = "psrt"
 path = "src/lib.rs"

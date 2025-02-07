@@ -23,7 +23,7 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::AsyncWriteExt;
-use tokio::net::{TcpStream, UnixStream};
+use tokio::net::{TcpStream, ToSocketAddrs, UdpSocket, UnixStream};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tokio::time;
@@ -842,5 +842,84 @@ impl Client {
 impl Drop for Client {
     fn drop(&mut self) {
         self.shutdown();
+    }
+}
+
+/// UDP Client with optional AES-256-GCM encryption. One-way communcation only (no
+/// acknowledgements)
+#[allow(clippy::module_name_repetitions)]
+pub struct UdpClient {
+    socket: UdpSocket,
+    login: Vec<u8>,
+    password: Vec<u8>,
+    encrypt: bool,
+}
+
+impl UdpClient {
+    pub async fn connect<A: ToSocketAddrs>(addr: A) -> Result<Self, Error> {
+        let socket = UdpSocket::bind("0.0.0.0:0").await?;
+        socket.connect(addr).await?;
+        Ok(Self {
+            socket,
+            login: <_>::default(),
+            password: <_>::default(),
+            encrypt: false,
+        })
+    }
+    pub fn with_auth(mut self, login: &str, password: &str) -> Self {
+        self.login = login.as_bytes().to_vec();
+        self.password = password.as_bytes().to_vec();
+        self.encrypt = false;
+        self
+    }
+    pub fn with_encryption_auth(mut self, login: &str, key: &[u8]) -> Self {
+        self.login = login.as_bytes().to_vec();
+        self.password = key.to_owned();
+        self.encrypt = true;
+        self
+    }
+    pub async fn publish(&self, topic: &str, message: &[u8]) -> Result<(), Error> {
+        let mut buf = Vec::new();
+        buf.extend(crate::CONTROL_HEADER);
+        buf.extend(crate::PROTOCOL_VERSION.to_le_bytes());
+        if self.encrypt {
+            buf.push(crate::AUTH_KEY_AES256_GCM);
+            buf.extend(&self.login);
+            buf.push(0x00);
+            let mut nonce = [0; 12];
+            openssl::rand::rand_bytes(&mut nonce).map_err(Error::internal)?;
+            let mut msg_buf = Vec::with_capacity(topic.len() + message.len() + 3);
+            msg_buf.push(crate::OP_PUBLISH_NO_ACK);
+            msg_buf.push(crate::DEFAULT_PRIORITY);
+            msg_buf.extend(topic.as_bytes());
+            msg_buf.push(0x00);
+            msg_buf.extend(message);
+            let mut digest = [0u8; 16];
+            let encrypted = openssl::symm::encrypt_aead(
+                openssl::symm::Cipher::aes_256_gcm(),
+                &self.password,
+                Some(&nonce),
+                &[],
+                &msg_buf,
+                &mut digest,
+            )
+            .map_err(Error::io)?;
+            buf.extend(&nonce);
+            buf.extend(&encrypted);
+            buf.extend(&digest);
+        } else {
+            buf.push(crate::AUTH_LOGIN_PASS);
+            buf.extend(&self.login);
+            buf.push(0x00);
+            buf.extend(&self.password);
+            buf.push(0x00);
+            buf.push(crate::OP_PUBLISH_NO_ACK);
+            buf.push(crate::DEFAULT_PRIORITY);
+            buf.extend(topic.as_bytes());
+            buf.push(0x00);
+            buf.extend(message);
+        }
+        self.socket.send(&buf).await?;
+        Ok(())
     }
 }
