@@ -67,7 +67,7 @@ release-enterprise:
     cd /opt/apt && just pub
 
 launch-test-server *ARGS:
-  cargo run --release --bin psrtd --features server -- --config ./test-configs/config.yml {{ARGS}}
+  cargo run -F openssl-vendored --release --bin psrtd --features server -- --config ./test-configs/config.yml {{ARGS}}
 launch-test-cserver *ARGS:
   cargo run --release --bin psrtd --features server,cluster -- --config ./test-configs/config.yml {{ARGS}}
 launch-test-cserver2 *ARGS:
