@@ -137,6 +137,8 @@ pub struct Error {
     message: Option<String>,
 }
 
+impl std::error::Error for Error {}
+
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
         if e.kind() == std::io::ErrorKind::UnexpectedEof
