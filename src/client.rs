@@ -18,6 +18,7 @@ use crate::RESPONSE_OK_WAITING;
 use crate::{Error, ErrorKind};
 use log::trace;
 use serde::{Deserialize, Deserializer};
+use std::future::Future;
 use std::path::Path;
 use std::sync::atomic;
 use std::sync::Arc;
@@ -845,8 +846,7 @@ impl Drop for Client {
     }
 }
 
-/// UDP Client with optional AES-256-GCM encryption. One-way communcation only (no
-/// acknowledgements)
+/// UDP Client with optional AES-256-GCM encryption
 #[allow(clippy::module_name_repetitions)]
 pub struct UdpClient {
     socket: UdpSocket,
@@ -878,10 +878,31 @@ impl UdpClient {
         self.encrypt = true;
         self
     }
-    pub async fn publish(&self, topic: &str, message: &[u8]) -> Result<(), Error> {
+    /// publish a topic with no acknowledgment
+    pub fn publish<'a>(
+        &'a self,
+        topic: &'a str,
+        message: &'a [u8],
+    ) -> impl Future<Output = Result<(), Error>> + 'a {
+        self.publish_impl(topic, message, false)
+    }
+    /// publish a topic with acknowledgment
+    pub fn publish_confirmed<'a>(
+        &'a self,
+        topic: &'a str,
+        message: &'a [u8],
+    ) -> impl Future<Output = Result<(), Error>> + 'a {
+        self.publish_impl(topic, message, true)
+    }
+    async fn publish_impl(&self, topic: &str, message: &[u8], ack: bool) -> Result<(), Error> {
         let mut buf = Vec::new();
         buf.extend(crate::CONTROL_HEADER);
         buf.extend(crate::PROTOCOL_VERSION.to_le_bytes());
+        let op = if ack {
+            crate::OP_PUBLISH
+        } else {
+            crate::OP_PUBLISH_NO_ACK
+        };
         if self.encrypt {
             buf.push(crate::AUTH_KEY_AES256_GCM);
             buf.extend(&self.login);
@@ -889,7 +910,7 @@ impl UdpClient {
             let mut nonce = [0; 12];
             openssl::rand::rand_bytes(&mut nonce).map_err(Error::internal)?;
             let mut msg_buf = Vec::with_capacity(topic.len() + message.len() + 3);
-            msg_buf.push(crate::OP_PUBLISH_NO_ACK);
+            msg_buf.push(op);
             msg_buf.push(crate::DEFAULT_PRIORITY);
             msg_buf.extend(topic.as_bytes());
             msg_buf.push(0x00);
@@ -913,13 +934,35 @@ impl UdpClient {
             buf.push(0x00);
             buf.extend(&self.password);
             buf.push(0x00);
-            buf.push(crate::OP_PUBLISH_NO_ACK);
+            buf.push(op);
             buf.push(crate::DEFAULT_PRIORITY);
             buf.extend(topic.as_bytes());
             buf.push(0x00);
             buf.extend(message);
         }
         self.socket.send(&buf).await?;
+        if ack {
+            let mut ack_buf = [0; 5];
+            loop {
+                let (size, addr) = self.socket.recv_from(&mut ack_buf).await?;
+                if addr == self.socket.peer_addr()? {
+                    if size != 5 {
+                        return Err(Error::invalid_data("Invalid ack size"));
+                    }
+                    if ack_buf[0..2] != crate::CONTROL_HEADER {
+                        return Err(Error::invalid_data("Invalid ack header"));
+                    }
+                    if ack_buf[2..4] != crate::PROTOCOL_VERSION.to_le_bytes() {
+                        return Err(Error::invalid_data("Invalid ack protocol version"));
+                    }
+                    if ack_buf[4] == RESPONSE_OK {
+                        return Ok(());
+                    } else {
+                        return Err(Error::io(format!("Server response error {:x}", ack_buf[4])));
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }
