@@ -1,22 +1,12 @@
 use chrono::prelude::*;
 use clap::Clap;
 use colored::Colorize;
-use log::{error, info, trace, warn};
 use log::{Level, LevelFilter};
-use once_cell::sync::{Lazy, OnceCell};
-use psrt::acl::{self, ACL_DB};
-use psrt::comm::{SStream, StreamHandler};
-use psrt::is_unix_socket;
-use psrt::pubsub::now_ns;
-use psrt::pubsub::MessageFrame;
-use psrt::pubsub::TOPIC_INVALID_SYMBOLS;
-use psrt::pubsub::{ServerClient, ServerClientDB, ServerClientDBStats};
-use psrt::reduce_timeout;
-use psrt::token::Token;
-use psrt::Error;
+use log::{error, info, trace, warn};
 use psrt::COMM_INSECURE;
 use psrt::COMM_TLS;
 use psrt::DEFAULT_PRIORITY;
+use psrt::Error;
 use psrt::OP_BYE;
 use psrt::OP_NOP;
 use psrt::OP_PUBLISH;
@@ -26,6 +16,15 @@ use psrt::OP_UNSUBSCRIBE;
 use psrt::RESPONSE_ERR;
 use psrt::RESPONSE_ERR_ACCESS;
 use psrt::RESPONSE_OK;
+use psrt::acl::{self, ACL_DB};
+use psrt::comm::{SStream, StreamHandler};
+use psrt::is_unix_socket;
+use psrt::pubsub::MessageFrame;
+use psrt::pubsub::TOPIC_INVALID_SYMBOLS;
+use psrt::pubsub::now_ns;
+use psrt::pubsub::{ServerClient, ServerClientDB, ServerClientDBStats};
+use psrt::reduce_timeout;
+use psrt::token::Token;
 use psrt::{CONTROL_HEADER, DATA_HEADER};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "cluster")]
@@ -34,15 +33,14 @@ use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::sync::atomic;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, OnceLock, atomic};
 use std::time::{Duration, Instant};
 use tokio::io::AsyncReadExt;
 use tokio::net::{TcpListener, TcpStream, UdpSocket, UnixListener, UnixStream};
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::{Mutex, RwLock};
 use tokio::time;
-use tokio_native_tls::{native_tls, TlsAcceptor};
+use tokio_native_tls::{TlsAcceptor, native_tls};
 
 static ERR_INVALID_DATA_BLOCK: &str = "Invalid data block";
 const MAX_AUTH_FRAME_SIZE: usize = 1024;
@@ -110,15 +108,15 @@ macro_rules! format_login {
 }
 
 // keep async as internal functions have async/io
-static PASSWORD_DB: Lazy<RwLock<psrt::passwords::Passwords>> = Lazy::new(<_>::default);
-static KEY_DB: Lazy<RwLock<psrt::keys::Keys>> = Lazy::new(<_>::default);
-static DB: Lazy<parking_lot::RwLock<ServerClientDB>> = Lazy::new(<_>::default);
-static STATS_COUNTERS: Lazy<parking_lot::RwLock<Counters>> = Lazy::new(<_>::default);
+static PASSWORD_DB: LazyLock<RwLock<psrt::passwords::Passwords>> = LazyLock::new(<_>::default);
+static KEY_DB: LazyLock<RwLock<psrt::keys::Keys>> = LazyLock::new(<_>::default);
+static DB: LazyLock<parking_lot::RwLock<ServerClientDB>> = LazyLock::new(<_>::default);
+static STATS_COUNTERS: LazyLock<parking_lot::RwLock<Counters>> = LazyLock::new(<_>::default);
 // keep async as it's used to block multiple term handlers
-static PID_FILE: Lazy<Mutex<Option<String>>> = Lazy::new(<_>::default);
-static HOST_NAME: OnceCell<String> = OnceCell::new();
-static UPTIME: Lazy<Instant> = Lazy::new(Instant::now);
-static UNIX_SOCKETS: Lazy<parking_lot::Mutex<BTreeSet<PathBuf>>> = Lazy::new(<_>::default);
+static PID_FILE: LazyLock<Mutex<Option<String>>> = LazyLock::new(<_>::default);
+static HOST_NAME: OnceLock<String> = OnceLock::new();
+static UPTIME: LazyLock<Instant> = LazyLock::new(Instant::now);
+static UNIX_SOCKETS: LazyLock<parking_lot::Mutex<BTreeSet<PathBuf>>> = LazyLock::new(<_>::default);
 
 macro_rules! respond_status {
     ($stream: expr, $status: expr) => {
@@ -194,10 +192,10 @@ async fn push_to_subscribers(
     message: Arc<Vec<u8>>,
     timestamp: u64,
 ) {
-    let mut frame = Vec::with_capacity(6 + topic.as_bytes().len() + message.len());
+    let mut frame = Vec::with_capacity(6 + topic.len() + message.len());
     frame.push(RESPONSE_OK);
     frame.push(priority);
-    frame.extend((topic.as_bytes().len() as u32 + message.len() as u32 + 1).to_le_bytes());
+    frame.extend((topic.len() as u32 + message.len() as u32 + 1).to_le_bytes());
     frame.extend(topic.as_bytes());
     frame.push(0x00);
     let message = Arc::new(MessageFrame {
@@ -650,9 +648,7 @@ async fn launch_data_stream(
                 let beacon_freq = u64::from(buf[0]) * 1000 / 2;
                 trace!(
                     "client {} reported timeout: {}, setting beacon freq to {} ms",
-                    token,
-                    buf[0],
-                    beacon_freq
+                    token, buf[0], beacon_freq
                 );
                 let beacon_interval = Duration::from_millis(beacon_freq);
                 let empty_message = Arc::new(MessageFrame {
@@ -693,7 +689,7 @@ async fn launch_data_stream(
                 respond_err!(stream);
                 return Err(e);
             }
-        };
+        }
     }
     Ok(())
 }

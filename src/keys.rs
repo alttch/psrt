@@ -1,5 +1,5 @@
-use crate::token::Token;
 use crate::Error;
+use crate::token::Token;
 use openssl::symm;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -114,15 +114,13 @@ impl Keys {
                     &key.cipher_aes_128,
                     &block[0..12],
                     &block[12..],
-                )
-                .map_err(Into::into),
+                ),
                 EncryptionType::Aes256Gcm => decrypt(
                     symm::Cipher::aes_256_gcm(),
                     &key.cipher_aes_256,
                     &block[0..12],
                     &block[12..],
-                )
-                .map_err(Into::into),
+                ),
                 EncryptionType::No => panic!("Attempt to decrypt unencrypted"),
             }
         } else {

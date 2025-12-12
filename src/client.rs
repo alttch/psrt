@@ -1,10 +1,7 @@
 //! PSRT client module
-use crate::comm::{SStream, StreamHandler};
-use crate::is_unix_socket;
-use crate::reduce_timeout;
-use crate::Message;
 use crate::COMM_INSECURE;
 use crate::COMM_TLS;
+use crate::Message;
 use crate::OP_BYE;
 use crate::OP_NOP;
 use crate::OP_PUBLISH;
@@ -15,13 +12,16 @@ use crate::RESPONSE_ERR_ACCESS;
 use crate::RESPONSE_NOT_REQUIRED;
 use crate::RESPONSE_OK;
 use crate::RESPONSE_OK_WAITING;
+use crate::comm::{SStream, StreamHandler};
+use crate::is_unix_socket;
+use crate::reduce_timeout;
 use crate::{Error, ErrorKind};
 use log::trace;
 use serde::{Deserialize, Deserializer};
 use std::future::Future;
 use std::path::Path;
-use std::sync::atomic;
 use std::sync::Arc;
+use std::sync::atomic;
 use std::time::{Duration, Instant};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpStream, ToSocketAddrs, UdpSocket, UnixStream};
@@ -29,7 +29,7 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tokio::time;
 use tokio::time::sleep;
-use tokio_native_tls::{native_tls, TlsConnector};
+use tokio_native_tls::{TlsConnector, native_tls};
 
 static ERR_COMMUNCATION_LOST: &str = "Communication lost";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -90,7 +90,7 @@ impl ControlCommand {
                 buf.push(OP_SUBSCRIBE);
                 let mut len: u32 = 0;
                 for t in topics {
-                    len += t.as_bytes().len() as u32 + 1;
+                    len += t.len() as u32 + 1;
                 }
                 buf.extend(len.to_le_bytes());
                 for t in topics {
@@ -108,7 +108,7 @@ impl ControlCommand {
                 buf.push(OP_UNSUBSCRIBE);
                 let mut len: u32 = 0;
                 for t in topics {
-                    len += t.as_bytes().len() as u32 + 1;
+                    len += t.len() as u32 + 1;
                 }
                 buf.extend(len.to_le_bytes());
                 for t in topics {
@@ -119,15 +119,13 @@ impl ControlCommand {
             ControlCommand::Publish(priority, topic, message) => {
                 buf.push(OP_PUBLISH);
                 buf.push(*priority);
-                buf.extend(
-                    (topic.as_bytes().len() as u32 + 1 + message.len() as u32).to_le_bytes(),
-                );
+                buf.extend((topic.len() as u32 + 1 + message.len() as u32).to_le_bytes());
                 buf.extend(topic.as_bytes());
                 buf.push(0x00);
             }
             ControlCommand::PublishRepl(_, topic, _, _) => {
                 buf.push(OP_PUBLISH_REPL);
-                buf.extend((topic.as_bytes().len() as u32).to_le_bytes());
+                buf.extend((topic.len() as u32).to_le_bytes());
                 buf.extend(topic.as_bytes());
             }
             ControlCommand::Bye => {
@@ -418,10 +416,8 @@ impl Client {
         trace!("authenticating");
         let mut auth_buf = Vec::new();
         #[allow(clippy::cast_possible_truncation)]
-        auth_buf.extend(
-            (config.user.as_bytes().len() as u32 + config.password.as_bytes().len() as u32 + 1)
-                .to_le_bytes(),
-        );
+        auth_buf
+            .extend((config.user.len() as u32 + config.password.len() as u32 + 1).to_le_bytes());
         auth_buf.extend(config.user.as_bytes());
         auth_buf.push(0x00);
         auth_buf.extend(config.password.as_bytes());
@@ -874,7 +870,7 @@ impl UdpClient {
     }
     pub fn with_encryption_auth(mut self, login: &str, key: &[u8]) -> Self {
         self.login = login.as_bytes().to_vec();
-        self.password = key.to_owned();
+        key.clone_into(&mut self.password);
         self.encrypt = true;
         self
     }
@@ -957,9 +953,8 @@ impl UdpClient {
                     }
                     if ack_buf[4] == RESPONSE_OK {
                         return Ok(());
-                    } else {
-                        return Err(Error::io(format!("Server response error {:x}", ack_buf[4])));
                     }
+                    return Err(Error::io(format!("Server response error {:x}", ack_buf[4])));
                 }
             }
         }

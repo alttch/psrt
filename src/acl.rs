@@ -1,19 +1,18 @@
 use crate::Error;
 use log::{info, trace};
-use once_cell::sync::Lazy;
-use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeSeq};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
 
 static ERR_PATH_MASK_EMPTY: &str = "Empty path mask";
 
-pub static ACL_DB: Lazy<RwLock<Db>> = Lazy::new(<_>::default);
+pub static ACL_DB: LazyLock<RwLock<Db>> = LazyLock::new(<_>::default);
 
 #[derive(Debug, Default)]
 pub struct Db {
@@ -79,11 +78,11 @@ impl Acl {
     }
     #[inline]
     pub fn allow_read(&self, topic: &str) -> bool {
-        self.read.as_ref().map_or(false, |v| v.matches(topic))
+        self.read.as_ref().is_some_and(|v| v.matches(topic))
     }
     #[inline]
     pub fn allow_write(&self, topic: &str) -> bool {
-        self.write.as_ref().map_or(false, |v| v.matches(topic))
+        self.write.as_ref().is_some_and(|v| v.matches(topic))
     }
     #[inline]
     pub fn is_replicator(&self) -> bool {
@@ -147,7 +146,7 @@ impl<'de> Deserialize<'de> for PathMask {
 }
 
 struct PathMaskVisitor;
-impl<'de> serde::de::Visitor<'de> for PathMaskVisitor {
+impl serde::de::Visitor<'_> for PathMaskVisitor {
     type Value = PathMask;
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a string-packed path mask")

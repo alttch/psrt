@@ -1834,7 +1834,6 @@ dependencies = [
  "mimalloc",
  "nix 0.25.1",
  "num-format",
- "once_cell",
  "openssl",
  "parking_lot_rt",
  "prettytable-rs",
