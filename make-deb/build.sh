@@ -12,9 +12,25 @@ else
   PACKAGE="psrt"
 fi
 
-TARGET="${PACKAGE}-${VERSION}-amd64${PACKAGE_SUFFIX}"
-[ -z "${RUST_TARGET}" ] && RUST_TARGET=x86_64-unknown-linux-musl
-[ -z "${TARGET_DIR}" ] && TARGET_DIR=target
+case "$TARGET_ARCH" in
+  x86_64)
+    DEB_ARCH="amd64"
+    RUST_TARGET="x86_64-unknown-linux-gnu"
+    TARGET_DIR="target-x86_64"
+    ;;
+  aarch64)
+    DEB_ARCH="arm64"
+    RUST_TARGET="aarch64-unknown-linux-gnu"
+    TARGET_DIR="target-aarch64"
+    ;;
+  *)
+    echo "Unsupported target architecture: ${TARGET_ARCH}"
+    exit 1
+    ;;
+esac
+
+TARGET="${PACKAGE}-${VERSION}-${DEB_ARCH}"
+[ -z "${TARGET_DIR}" ] && exit 1
 
 rm -rf "./${TARGET}"
 mkdir -p "./${TARGET}/usr/bin"
@@ -33,9 +49,10 @@ Package: ${PACKAGE}
 Version: ${VERSION}
 Section: base
 Priority: optional
-Architecture: amd64
+Architecture: ${DEB_ARCH}
 Maintainer: Serhij S. <div@altertech.com>
 Description: Industrial Pub-Sub server with minimal latency and MQTT-compatible logic
+Depends: libc6 (>= 2.35), libssl3, ca-certificates
 EOF
 ) > "./${TARGET}/DEBIAN/control"
 cp -vf ./debian/* "./${TARGET}/DEBIAN/"

@@ -1,7 +1,7 @@
 [package]
 name = "psrt"
-version = "0.2.10"
-edition = "2021"
+version = "0.3.0"
+edition = "2024"
 authors = ["Serhij S. <div@altertech.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/alttch/psrt"
@@ -73,25 +73,25 @@ term_size = { version = "0.3.2", optional = true }
 prettytable-rs = { version = "0.10.0", optional = true }
 num-format = { version = "0.4.0", optional = true }
 getch = { version = "0.2.1", optional = true }
-aes-gcm = { version = "0.9.4", optional = true }
-rand = { version = "0.8.4", optional = true }
+aes-gcm = { version = "0.10.3", optional = true }
+rand = { version = "0.9", optional = true }
 submap = { version = "0.2.3", optional = true }
 mimalloc = { version = "0.1.43", optional = true }
 parking_lot = { package = "parking_lot_rt", version = "0.12.1" }
 async-trait = "0.1.74"
-eva-sdk = { version = "0.3.75", optional = true }
-eva-common = { version = "0.3.119", features = ["services", "fips"], optional = true }
+eva-sdk = { version = "0.4", optional = true }
+rustls = { version = "0.23", optional = true, features = ["fips"] }
+eva-common = { version = "^0.4.5", features = ["services", "fips"], optional = true }
 
 [features]
-#default = ["server"]
+#default = ["server", "cli", "cluster"]
 cluster = ["server"]
 cli = ["dep:bma-benchmark", "dep:byte-unit", "dep:clap", "dep:clap_derive", "dep:env_logger",
     "dep:term_size", "dep:prettytable-rs", "dep:num-format", "dep:getch", "dep:rand",
-    "dep:mimalloc"]
+    "dep:mimalloc", "dep:rustls"]
 server = ["dep:base64", "dep:bcrypt", "dep:clap", "dep:clap_derive", "dep:colored", "dep:chrono", "dep:fork",
     "dep:hostname", "dep:hyper", "dep:serde_json", "dep:syslog", "dep:mimalloc", "submap/native-digest",
-    "dep:eva-common", "dep:eva-sdk"]
+    "dep:eva-common", "dep:eva-sdk", "dep:rustls"]
 crypto = ["dep:aes-gcm", "dep:rand"]
-openssl-vendored = ["openssl/vendored", "eva-common/openssl-no-fips"]
-openssl3 = ["eva-common/openssl3"]
+openssl-vendored = ["openssl/vendored"]
 std-alloc = []

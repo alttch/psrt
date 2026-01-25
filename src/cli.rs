@@ -6,15 +6,15 @@ use clap::Clap;
 use log::info;
 use num_format::{Locale, ToFormattedString};
 use prettytable::Table;
-use rand::prelude::*;
+use rand::Rng;
 use std::collections::BTreeMap;
-use std::sync::{atomic, Arc};
+use std::sync::{Arc, atomic};
 use std::time::{Duration, Instant};
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::RwLock;
 
-use psrt::client;
 use psrt::DEFAULT_PRIORITY;
+use psrt::client;
 
 static ERR_TOPIC_NOT_SPECIFIED: &str = "Topic not specified";
 
@@ -238,7 +238,7 @@ async fn benchmark(
         "Benchmarking, {} workers, {} iterations per worker...",
         benchmark_workers, iterations
     );
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut workers = Vec::new();
     for i in 0..benchmark_workers {
         let mut client = client::Client::connect(config).await.unwrap();
@@ -251,7 +251,7 @@ async fn benchmark(
             (client.take_data_channel().unwrap(), None)
         };
         assert!(client.is_connected());
-        let bi: u32 = rng.gen();
+        let bi: u32 = rng.random();
         workers.push(Arc::new(BenchmarkWorker::new(
             format!("{}/{}", bi, i),
             client,
@@ -395,11 +395,11 @@ async fn main() {
             signal(SignalKind::interrupt()).unwrap().recv().await;
             client.bye().await.unwrap();
             print!("{}[2J", 27 as char);
-            if let Ok(term) = std::env::var("TERM") {
-                if term.starts_with("screen") {
-                    for s in &["reset", "cnorm"] {
-                        let _r = std::process::Command::new("tput").arg(s).spawn();
-                    }
+            if let Ok(term) = std::env::var("TERM")
+                && term.starts_with("screen")
+            {
+                for s in &["reset", "cnorm"] {
+                    let _r = std::process::Command::new("tput").arg(s).spawn();
                 }
             }
             std::process::exit(0);
@@ -408,11 +408,13 @@ async fn main() {
         let show_step = Duration::from_secs(1);
         let mut table = prepare_stat_table();
         let getch = getch::Getch::new();
-        std::thread::spawn(move || loop {
-            let ch = getch.getch().unwrap();
-            if ch as char == 's' {
-                let s = SORT_MODE.load(atomic::Ordering::SeqCst);
-                SORT_MODE.store(s ^ 1, atomic::Ordering::SeqCst);
+        std::thread::spawn(move || {
+            loop {
+                let ch = getch.getch().unwrap();
+                if ch as char == 's' {
+                    let s = SORT_MODE.load(atomic::Ordering::SeqCst);
+                    SORT_MODE.store(s ^ 1, atomic::Ordering::SeqCst);
+                }
             }
         });
         table.add_row(row![' ', ' ', ' ']);
@@ -428,10 +430,10 @@ async fn main() {
                 stat.count(message.data().len());
                 topic_stats.insert(topic.to_owned(), stat);
             }
-            if let Some(last_refresh) = last_refresh {
-                if last_refresh.elapsed() < show_step {
-                    continue;
-                }
+            if let Some(last_refresh) = last_refresh
+                && last_refresh.elapsed() < show_step
+            {
+                continue;
             }
             last_refresh = Some(Instant::now());
             let mut stats: Vec<&TopicStat> = topic_stats.values().collect();

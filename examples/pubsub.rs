@@ -1,5 +1,5 @@
-use psrt::client::{Client, Config};
 use psrt::DEFAULT_PRIORITY;
+use psrt::client::{Client, Config};
 use std::time::Duration;
 use tokio::time::sleep;
 

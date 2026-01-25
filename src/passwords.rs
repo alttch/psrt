@@ -39,10 +39,10 @@ impl Passwords {
         Ok(())
     }
     pub fn verify(&self, login: &str, password: &str) -> bool {
-        if let Some(map) = self.passwords.as_ref() {
-            if let Some(hash) = map.get(login) {
-                return bcrypt::verify(password, hash).unwrap_or(false);
-            }
+        if let Some(map) = self.passwords.as_ref()
+            && let Some(hash) = map.get(login)
+        {
+            return bcrypt::verify(password, hash).unwrap_or(false);
         }
         false
     }

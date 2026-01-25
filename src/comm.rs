@@ -1,6 +1,6 @@
 //! Internal socket communication wrapper
-use crate::reduce_timeout;
 use crate::Error;
+use crate::reduce_timeout;
 use async_trait::async_trait;
 use std::marker::Unpin;
 use std::time::{Duration, Instant};
@@ -98,10 +98,10 @@ where
         let mut len_buf: [u8; 4] = [0; 4];
         self.read_with_timeout(&mut len_buf, timeout).await?;
         let len = u32::from_le_bytes(len_buf);
-        if let Some(max_len) = max_length {
-            if len as usize > max_len {
-                return Err(Error::invalid_data(format!("Frame too long ({})", len)));
-            }
+        if let Some(max_len) = max_length
+            && len as usize > max_len
+        {
+            return Err(Error::invalid_data(format!("Frame too long ({})", len)));
         }
         let mut buf = vec![0; len as usize];
         self.read_with_timeout(&mut buf, reduce_timeout(timeout, op_start))

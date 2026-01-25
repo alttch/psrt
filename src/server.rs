@@ -802,8 +802,8 @@ impl From<StringOrList> for Vec<String> {
 impl<'a> From<&'a StringOrList> for Vec<&'a str> {
     fn from(l: &'a StringOrList) -> Self {
         match l {
-            StringOrList::Single(ref s) => vec![s.as_str()],
-            StringOrList::Multiple(ref v) => v.iter().map(String::as_str).collect(),
+            StringOrList::Single(s) => vec![s.as_str()],
+            StringOrList::Multiple(v) => v.iter().map(String::as_str).collect(),
         }
     }
 }
@@ -1542,10 +1542,10 @@ fn main() {
         if config.proto.fips {
             eva_common::services::enable_fips().unwrap();
         }
-        if opts.daemonize {
-            if let Ok(fork::Fork::Child) = fork::daemon(true, false) {
-                std::process::exit(0);
-            }
+        if opts.daemonize
+            && let Ok(fork::Fork::Child) = fork::daemon(true, false)
+        {
+            std::process::exit(0);
         }
         // end standalone-specific
         let timeout = Duration::from_secs_f64(config.proto.timeout.unwrap_or(DEFAULT_TIMEOUT_SECS));
@@ -1684,17 +1684,16 @@ mod stats {
             };
             let mut authorized = false;
             if let Some((ref login, ref password)) = credentials {
-                if super::authenticate(login, password).await {
-                    if let Some(acl) = super::get_acl(login).await {
-                        if acl.is_admin() {
-                            authorized = true;
-                        }
-                    }
-                }
-            } else if let Some(acl) = super::get_acl("_").await {
-                if acl.is_admin() {
+                if super::authenticate(login, password).await
+                    && let Some(acl) = super::get_acl(login).await
+                    && acl.is_admin()
+                {
                     authorized = true;
                 }
+            } else if let Some(acl) = super::get_acl("_").await
+                && acl.is_admin()
+            {
+                authorized = true;
             }
             if !authorized {
                 return Ok(Response::builder()

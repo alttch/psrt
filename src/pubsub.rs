@@ -1,12 +1,12 @@
-use crate::token::Token;
 use crate::Error;
+use crate::token::Token;
 use log::trace;
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::{BTreeSet, HashMap};
 use std::fmt;
-use std::sync::atomic;
 use std::sync::Arc;
+use std::sync::atomic;
 use submap::SubMap;
 use tokio::task::JoinHandle;
 

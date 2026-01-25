@@ -1,0 +1,50 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CROSS_DEB_ARCH=arm64
+
+COPY ./sources.list.u22 /etc/apt/sources.list
+
+RUN dpkg --add-architecture arm64
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgcc-s1-arm64-cross \
+    g++ \
+    g++-aarch64-linux-gnu \
+    gcc \
+    gcc-aarch64-linux-gnu \
+    curl \
+    openssl \
+    ca-certificates \
+    libssl-dev \
+    git \
+    pkg-config \
+    make \
+    cmake \
+    libsqlite3-dev \
+    golang \
+    nasm \
+    llvm \
+    libclang-dev:$CROSS_DEB_ARCH \
+    libc6-dev:$CROSS_DEB_ARCH \
+    libssl-dev:$CROSS_DEB_ARCH \
+    libbsd-dev:$CROSS_DEB_ARCH \
+    libtbb-dev:$CROSS_DEB_ARCH \
+    zlib1g-dev:$CROSS_DEB_ARCH \
+    libudev-dev:$CROSS_DEB_ARCH \
+    libsqlite3-dev:$CROSS_DEB_ARCH
+
+RUN rm -rf /var/lib/apt/lists/*
+
+RUN printf '%s\n' \
+  '#!/bin/sh' \
+  'export PKG_CONFIG_DIR=' \
+  'export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig' \
+  'export PKG_CONFIG_SYSROOT_DIR=/' \
+  'exec pkg-config "$@"' \
+  > /usr/local/bin/aarch64-linux-gnu-pkg-config && chmod +x /usr/local/bin/aarch64-linux-gnu-pkg-config
+
+ENV PKG_CONFIG_aarch64_unknown_linux_gnu=/usr/local/bin/aarch64-linux-gnu-pkg-config
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+ENV PKG_CONFIG_ALLOW_CROSS=1
+ENV ARCH_SFX=aarch64
