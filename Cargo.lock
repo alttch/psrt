@@ -2645,7 +2645,7 @@ dependencies = [
 
 [[package]]
 name = "psrt"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "aes-gcm",
  "async-channel 1.9.0",
