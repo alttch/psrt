@@ -38,28 +38,39 @@ pkg:
       tar czvf ../../../_build/psrt-{{VERSION}}-aarch64.tar.gz psrtd psrt-cli
 
 debian-pkg:
-    cd make-deb && TARGET_ARCH=aarch64 ./build.sh && mv psrt-{{VERSION}}-arm64.deb ../_build/
     cd make-deb && TARGET_ARCH=x86_64 ./build.sh && mv psrt-{{VERSION}}-amd64.deb ../_build/
+    cd make-deb && TARGET_ARCH=aarch64 ./build.sh && mv psrt-{{VERSION}}-arm64.deb ../_build/
 
 pub-pkg:
-    cd _build && echo "" | gh release create v{{VERSION}} -t "v{{VERSION}}" \
+    cd _build && echo "" \
+      | gh release create v{{VERSION}} -t "v{{VERSION}}" \
             psrt-{{VERSION}}-x86_64.tar.gz \
             psrt-{{VERSION}}-aarch64.tar.gz \
             psrt-{{VERSION}}-amd64.deb \
-            psrt-{{VERSION}}-arm64.deb \
-    cd ~/src/apt/repo && reprepro includedeb stable /opt/psrt/_build/psrt-{{VERSION}}-amd64.deb
-    cd ~/src/apt/repo && reprepro includedeb stable /opt/psrt/_build/psrt-{{VERSION}}-arm64.deb
+            psrt-{{VERSION}}-arm64.deb
+    cd ~/src/apt/repo && reprepro includedeb stable ~/src/psrt/_build/psrt-{{VERSION}}-amd64.deb
+    cd ~/src/apt/repo && reprepro includedeb stable ~/src/psrt/_build/psrt-{{VERSION}}-arm64.deb
     cd ~/src/apt && just pub
 
-release-enterprise:
-    DOCKER_OPTS="-v /opt/eva4-enterprise:/opt/eva4-enterprise" cross build --target x86_64-unknown-linux-musl --release --features cli,cluster
-    cd make-deb && \
-        TARGET_DIR=target-x86_64-musl ./build.sh enterprise && \
-      PACKAGE_SUFFIX=-ubuntu20.04 RUST_TARGET=. ./build.sh enterprise && \
-        gsutil cp -a public-read psrt-enterprise-{{VERSION}}-amd64.deb gs://pub.bma.ai/psrt-enterprise/ && \
-        gsutil cp -a public-read psrt-enterprise-{{VERSION}}-amd64-ubuntu20.04.deb gs://pub.bma.ai/psrt-enterprise/
-    cd /opt/apt/repo && reprepro includedeb stable /opt/psrt/make-deb/psrt-enterprise-{{VERSION}}-amd64-ubuntu20.04.deb
-    cd /opt/apt && just pub
+release-enterprise: build-enterprise deb-enterprise pub-enterprise
+
+build-enterprise:
+    CARGO_TARGET_DIR=target-x86_64 DOCKER_OPTS="-v /opt/eva4-enterprise:/opt/eva4-enterprise" cross \
+        build --target x86_64-unknown-linux-gnu --release --features cli,cluster
+    CARGO_TARGET_DIR=target-aarch64 DOCKER_OPTS="-v /opt/eva4-enterprise:/opt/eva4-enterprise" cross \
+        build --target aarch64-unknown-linux-gnu --release --features cli,cluster
+
+deb-enterprise:
+    cd make-deb && TARGET_ARCH=x86_64 ./build.sh enterprise && mv psrt-enterprise-{{VERSION}}-amd64.deb ../_build/
+    cd make-deb && TARGET_ARCH=aarch64 ./build.sh enterprise && mv psrt-enterprise-{{VERSION}}-arm64.deb ../_build/
+
+pub-enterprise:
+    gsutil cp -a public-read ./_build/psrt-enterprise-{{VERSION}}-amd64.deb gs://pub.bma.ai/psrt-enterprise/
+    gsutil cp -a public-read ./_build/psrt-enterprise-{{VERSION}}-arm64.deb gs://pub.bma.ai/psrt-enterprise/
+    cd ~/src/apt/repo && reprepro includedeb stable ~/src/psrt/_build/psrt-enterprise-{{VERSION}}-amd64.deb
+    cd ~/src/apt/repo && reprepro includedeb stable ~/src/psrt/_build/psrt-enterprise-{{VERSION}}-arm64.deb
+    cd ~/src/apt && just pub
+    rci x pub.bma.ai
 
 launch-test-server *ARGS:
   cargo run --release --bin psrtd --features server -- --config ./test-configs/config.yml {{ARGS}}
