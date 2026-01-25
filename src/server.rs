@@ -866,7 +866,21 @@ struct Opts {
     eva_svc: bool,
 }
 
-struct SimpleLogger;
+struct SimpleLogger {
+    log_time: atomic::AtomicBool,
+}
+
+impl SimpleLogger {
+    const fn new() -> Self {
+        Self {
+            log_time: atomic::AtomicBool::new(true),
+        }
+    }
+    fn init(&self) {
+        let log_time = std::env::var("INVOCATION_ID").is_err();
+        self.log_time.store(log_time, atomic::Ordering::Relaxed);
+    }
+}
 
 impl log::Log for SimpleLogger {
     fn enabled(&self, _metadata: &log::Metadata) -> bool {
@@ -875,11 +889,15 @@ impl log::Log for SimpleLogger {
 
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
-            let s = format!(
-                "{}  {}",
-                Local::now().to_rfc3339_opts(SecondsFormat::Secs, false),
-                record.args()
-            );
+            let s = if self.log_time.load(atomic::Ordering::Relaxed) {
+                format!(
+                    "{}  {}",
+                    Local::now().to_rfc3339_opts(SecondsFormat::Secs, false),
+                    record.args()
+                )
+            } else {
+                record.args().to_string()
+            };
             println!(
                 "{}",
                 match record.level() {
@@ -896,9 +914,10 @@ impl log::Log for SimpleLogger {
     fn flush(&self) {}
 }
 
-static LOGGER: SimpleLogger = SimpleLogger;
+static LOGGER: SimpleLogger = SimpleLogger::new();
 
 fn set_verbose_logger(filter: LevelFilter) {
+    LOGGER.init();
     log::set_logger(&LOGGER)
         .map(|()| log::set_max_level(filter))
         .unwrap();
