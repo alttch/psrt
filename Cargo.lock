@@ -2680,7 +2680,7 @@ dependencies = [
 
 [[package]]
 name = "psrt"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "aes-gcm",
  "async-channel 1.9.0",
@@ -3145,9 +3145,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.9"
+version = "0.103.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7df23109aa6c1567d1c575b9952556388da57401e4ace1d15f79eedad0d8f53"
+checksum = "8279bb85272c9f10811ae6a6c547ff594d6a7f3c6c6b02ee9726d1d0dcfcdd06"
 dependencies = [
  "aws-lc-rs",
  "ring",
