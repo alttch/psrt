@@ -67,7 +67,7 @@ impl Keys {
         if let Some(path) = self.key_file.as_ref() {
             log::info!("loading key file {}", path.to_string_lossy());
             let data = tokio::fs::read_to_string(path).await?;
-            let keys: BTreeMap<String, String> = serde_yaml::from_str(&data)?;
+            let keys: BTreeMap<String, String> = serde_yaml2::from_str(&data)?;
             let mut key_map = BTreeMap::new();
             let acl_db = crate::acl::ACL_DB.read().await;
             for (login, k) in keys {

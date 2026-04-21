@@ -39,7 +39,7 @@ impl Db {
     pub async fn reload(&mut self) -> Result<(), Error> {
         info!("loading ACL {}", self.path.to_string_lossy());
         let acls: BTreeMap<String, Acl> =
-            serde_yaml::from_str(&tokio::fs::read_to_string(&self.path).await?)?;
+            serde_yaml2::from_str(&tokio::fs::read_to_string(&self.path).await?)?;
         self.acls.clear();
         // TODO optimize when pop available
         for (user, acl) in acls {

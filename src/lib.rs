@@ -163,8 +163,8 @@ impl From<openssl::error::ErrorStack> for Error {
     }
 }
 
-impl From<serde_yaml::Error> for Error {
-    fn from(e: serde_yaml::Error) -> Error {
+impl From<serde::de::value::Error> for Error {
+    fn from(e: serde::de::value::Error) -> Error {
         Error::invalid_data(e)
     }
 }

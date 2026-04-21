@@ -1288,7 +1288,7 @@ async fn prepare_replication_configs(
         let fname = format_path(&c.config, cdir);
         info!("loading cluster config {}", fname.to_string_lossy());
         let cfg = tokio::fs::read_to_string(fname).await.unwrap();
-        let mut cfgs: Vec<psrt::client::Config> = serde_yaml::from_str(&cfg).unwrap();
+        let mut cfgs: Vec<psrt::client::Config> = serde_yaml2::from_str(&cfg).unwrap();
         let mut configs = Vec::new();
         while !cfgs.is_empty() {
             let mut c = cfgs.remove(0);
@@ -1557,7 +1557,7 @@ fn main() {
             .expect("Unable to get config dir")
             .canonicalize()
             .expect("Unable to parse config path");
-        let config: Config = serde_yaml::from_str(&cfg).unwrap();
+        let config: Config = serde_yaml2::from_str(&cfg).unwrap();
         if config.proto.fips {
             eva_common::services::enable_fips().unwrap();
         }
