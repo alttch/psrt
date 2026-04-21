@@ -1,6 +1,6 @@
 [package]
 name = "psrt"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2024"
 authors = ["Serhij S. <div@altertech.com>"]
 license = "Apache-2.0"
@@ -55,12 +55,11 @@ openssl = "0.10"
 async-channel = "1.7.1"
 serde = { version =  "1.0.143", features = ["derive"] }
 serde_yaml = "0.8.26"
-clap = { version = "=3.0.0-beta.2", optional = true }
-clap_derive = { version = "=3.0.0-beta.2", optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
 syslog = { version = "7.0.0", optional = true }
 chrono = { version = "0.4.42", optional = true }
 colored = { version = "2", optional = true }
-env_logger = { version = "0.9.0", optional = true }
+env_logger = { version = "0.11", optional = true }
 bcrypt = { version = "0.10.1", optional = true }
 fork = { version = "0.1.18", optional = true }
 bma-benchmark = { version = "0.0.20", optional = true }
@@ -69,7 +68,7 @@ hyper = { version = "0.14", features = ["full"], optional = true }
 serde_json = { version = "1.0.68", optional = true }
 base64 = { version = "0.13.0", optional = true }
 hostname = { version = "0.3.1", optional = true }
-term_size = { version = "0.3.2", optional = true }
+terminal_size = { version = "0.4", optional = true }
 prettytable-rs = { version = "0.10.0", optional = true }
 num-format = { version = "0.4.0", optional = true }
 getch = { version = "0.2.1", optional = true }
@@ -81,15 +80,15 @@ parking_lot = { package = "parking_lot_rt", version = "0.12.1" }
 async-trait = "0.1.74"
 eva-sdk = { version = "0.4", optional = true }
 rustls = { version = "0.23", optional = true, features = ["fips"] }
-eva-common = { version = "^0.4.5", features = ["services", "fips"], optional = true }
+eva-common = { version = "^0.4.8", features = ["services", "fips"], optional = true }
 
 [features]
 #default = ["server", "cli", "cluster"]
 cluster = ["server"]
-cli = ["dep:bma-benchmark", "dep:byte-unit", "dep:clap", "dep:clap_derive", "dep:env_logger",
-    "dep:term_size", "dep:prettytable-rs", "dep:num-format", "dep:getch", "dep:rand",
+cli = ["dep:bma-benchmark", "dep:byte-unit", "dep:clap", "dep:env_logger",
+    "dep:terminal_size", "dep:prettytable-rs", "dep:num-format", "dep:getch", "dep:rand",
     "dep:mimalloc", "dep:rustls"]
-server = ["dep:base64", "dep:bcrypt", "dep:clap", "dep:clap_derive", "dep:colored", "dep:chrono", "dep:fork",
+server = ["dep:base64", "dep:bcrypt", "dep:clap", "dep:colored", "dep:chrono", "dep:fork",
     "dep:hostname", "dep:hyper", "dep:serde_json", "dep:syslog", "dep:mimalloc", "submap/native-digest",
     "dep:eva-common", "dep:eva-sdk", "dep:rustls"]
 crypto = ["dep:aes-gcm", "dep:rand"]

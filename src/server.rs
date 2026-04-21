@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use clap::Clap;
+use clap::Parser;
 use colored::Colorize;
 use log::{Level, LevelFilter};
 use log::{error, info, trace, warn};
@@ -847,21 +847,21 @@ struct Config {
     cluster: Option<ConfigCluster>,
 }
 
-#[derive(Clap)]
-#[clap(version = psrt::VERSION, author = psrt::AUTHOR, name = APP_NAME)]
+#[derive(Parser)]
+#[command(version = psrt::VERSION, author = psrt::AUTHOR, name = APP_NAME)]
 #[allow(clippy::struct_excessive_bools)]
 struct Opts {
-    #[clap(short = 'C', long = "config")]
+    #[arg(short = 'C', long = "config")]
     config_file: Option<String>,
-    #[clap(short = 'v', about = "Verbose logging")]
+    #[arg(short = 'v', help = "Verbose logging")]
     verbose: bool,
-    #[clap(long = "log-syslog", about = "Force log to syslog")]
+    #[arg(long = "log-syslog", help = "Force log to syslog")]
     log_syslog: bool,
-    #[clap(short = 'd', about = "Run in the background")]
+    #[arg(short = 'd', help = "Run in the background")]
     daemonize: bool,
-    #[clap(
+    #[arg(
         long = "eva-svc",
-        about = "Run as EVA ICS v4 service (all other arguments are ignored)"
+        help = "Run as EVA ICS v4 service (all other arguments are ignored)"
     )]
     eva_svc: bool,
 }

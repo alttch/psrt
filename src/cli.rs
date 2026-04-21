@@ -2,7 +2,7 @@
 extern crate bma_benchmark;
 #[macro_use]
 extern crate prettytable;
-use clap::Clap;
+use clap::Parser;
 use log::info;
 use num_format::{Locale, ToFormattedString};
 use prettytable::Table;
@@ -22,34 +22,34 @@ static ERR_TOPIC_NOT_SPECIFIED: &str = "Topic not specified";
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-#[derive(Clap)]
-#[clap(version = psrt::VERSION, author = psrt::AUTHOR)]
+#[derive(Parser)]
+#[command(version = psrt::VERSION, author = psrt::AUTHOR)]
 struct Opts {
-    #[clap(name = "host:port")]
+    #[arg(name = "host:port")]
     path: String,
-    #[clap(short = 'u')]
+    #[arg(short = 'u')]
     user: Option<String>,
-    #[clap(short = 'p')]
+    #[arg(short = 'p')]
     password: Option<String>,
-    #[clap(long = "top", about = "monitor the most used topics")]
+    #[arg(long = "top", help = "monitor the most used topics")]
     top: bool,
-    #[clap(short = 't')]
+    #[arg(short = 't')]
     topic: Option<String>,
-    #[clap(short = 'm', about = "==size to generate")]
+    #[arg(short = 'm', help = "==size to generate")]
     message: Option<String>,
-    #[clap(long = "benchmark")]
+    #[arg(long = "benchmark")]
     benchmark: bool,
-    #[clap(long = "benchmark-iterations", default_value = "10000")]
+    #[arg(long = "benchmark-iterations", default_value = "10000")]
     benchmark_iterations: u32,
-    #[clap(long = "benchmark-workers", default_value = "4")]
+    #[arg(long = "benchmark-workers", default_value = "4")]
     benchmark_workers: u32,
-    #[clap(long = "benchmark-cluster-sub", about = "subscribe to another node")]
+    #[arg(long = "benchmark-cluster-sub", help = "subscribe to another node")]
     benchmark_cluster_sub: Option<String>,
-    #[clap(long = "timeout", default_value = "5")]
+    #[arg(long = "timeout", default_value = "5")]
     timeout: f64,
-    #[clap(long = "tls")]
+    #[arg(long = "tls")]
     tls: bool,
-    #[clap(long = "tls-ca")]
+    #[arg(long = "tls-ca")]
     tls_ca: Option<String>,
 }
 
@@ -444,8 +444,8 @@ async fn main() {
                     b.bytes.cmp(&a.bytes)
                 }
             });
-            let (_, h) = term_size::dimensions().unwrap();
-            stats.truncate(h - 4);
+            let (_, terminal_size::Height(h)) = terminal_size::terminal_size().unwrap();
+            stats.truncate(usize::from(h).saturating_sub(4));
             let mut table = prepare_stat_table();
             for s in stats {
                 let byte = byte_unit::Byte::from_bytes(s.bytes);
