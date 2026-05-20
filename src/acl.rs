@@ -320,6 +320,7 @@ mod tests {
         let mask: PathMask = serde_yaml2::from_str("\"#\"").unwrap();
         assert_eq!(mask.to_string(), "#");
 
+        #[allow(clippy::items_after_statements)]
         fn parse_acl(yaml: &str) -> Acl {
             let full = format!("u:\n{yaml}");
             let mut map: BTreeMap<String, Acl> =
