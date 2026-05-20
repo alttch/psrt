@@ -51,7 +51,7 @@ log = "0.4.14"
 hex = "0.4.2"
 nix = "0.25.0"
 tokio-native-tls = "0.3.1"
-openssl = "0.10"
+openssl = "0.10.80"
 async-channel = "1.7.1"
 serde = { version =  "1.0.143", features = ["derive"] }
 serde_yaml2 = "0.1"
