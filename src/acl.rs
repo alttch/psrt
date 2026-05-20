@@ -141,7 +141,7 @@ impl<'de> Deserialize<'de> for PathMask {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_unit(PathMaskVisitor)
+        deserializer.deserialize_any(PathMaskVisitor)
     }
 }
 
@@ -187,13 +187,26 @@ impl Serialize for PathMaskList {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum PathMaskListYaml {
+    One(PathMask),
+    Many(HashSet<PathMask>),
+}
+
 impl<'de> Deserialize<'de> for PathMaskList {
     fn deserialize<D>(deserializer: D) -> Result<PathMaskList, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let masks: HashSet<PathMask> = Deserialize::deserialize(deserializer)?;
-        Ok(PathMaskList::new(masks))
+        match PathMaskListYaml::deserialize(deserializer)? {
+            PathMaskListYaml::One(mask) => {
+                let mut masks = HashSet::new();
+                masks.insert(mask);
+                Ok(PathMaskList::new(masks))
+            }
+            PathMaskListYaml::Many(masks) => Ok(PathMaskList::new(masks)),
+        }
     }
 }
 
@@ -299,7 +312,37 @@ impl FromStr for PathMask {
 
 #[cfg(test)]
 mod tests {
-    use super::{PathMask, PathMaskList};
+    use super::{Acl, PathMask, PathMaskList};
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn test_yaml_acl_masks() {
+        let mask: PathMask = serde_yaml2::from_str("\"#\"").unwrap();
+        assert_eq!(mask.to_string(), "#");
+
+        fn parse_acl(yaml: &str) -> Acl {
+            let full = format!("u:\n{yaml}");
+            let mut map: BTreeMap<String, Acl> =
+                serde_yaml2::from_str(&full).unwrap_or_else(|e| panic!("{e}: {full}"));
+            map.remove("u").unwrap()
+        }
+
+        for yaml in [
+            "  sub: \"#\"",
+            "  sub: '#'",
+            "  sub:\n    - \"#\"",
+            "  sub:\n    - '#'",
+            "  sub: [\"#\"]",
+        ] {
+            assert!(parse_acl(yaml).allow_read("any/topic"), "yaml: {yaml}");
+        }
+
+        let y = std::fs::read_to_string("test-configs/acl-user.yml").unwrap();
+        let acls: BTreeMap<String, Acl> = serde_yaml2::from_str(&y).unwrap();
+        assert!(acls.get("_").unwrap().allow_read("any"));
+        assert!(acls.get("user1").unwrap().allow_read("topic1/foo"));
+        assert!(!acls.get("user1").unwrap().allow_read("topic4/x"));
+    }
 
     #[test]
     fn test_path_mask() {
