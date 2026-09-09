@@ -1590,10 +1590,15 @@ fn cleanup() {
 
 mod stats {
     #![allow(arithmetic_overflow)]
-    use hyper::service::{make_service_fn, service_fn};
-    use hyper::{Body, Method, Request, Response, Server, StatusCode};
+    use http_body_util::Full;
+    use hyper::body::{Bytes, Incoming};
+    use hyper::service::service_fn;
+    use hyper::{Method, Request, Response, StatusCode};
+    use hyper_util::rt::{TokioExecutor, TokioIo};
+    use hyper_util::server::conn::auto::Builder;
     use std::convert::Infallible;
     use std::net::SocketAddr;
+    use tokio::net::TcpListener;
 
     static HTML_STATS: &str = include_str!("stats.html");
     static JS_CHART_MIN: &str = include_str!("chart.min.js");
@@ -1602,7 +1607,7 @@ mod stats {
         ($status: expr) => {
             Ok(Response::builder()
                 .status($status)
-                .body(Body::from(String::new()))
+                .body(Full::new(Bytes::new()))
                 .unwrap())
         };
     }
@@ -1611,7 +1616,7 @@ mod stats {
         ($code: expr, $content: expr) => {
             Ok(Response::builder()
                 .status($code)
-                .body(Body::from($content))
+                .body(Full::new(Bytes::from($content)))
                 .unwrap())
         };
     }
@@ -1648,7 +1653,7 @@ mod stats {
     }
 
     #[allow(clippy::too_many_lines)]
-    async fn handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    async fn handler(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
         let (parts, _body) = req.into_parts();
         if parts.method == Method::GET {
             let path = parts.uri.path();
@@ -1718,7 +1723,7 @@ mod stats {
                 return Ok(Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
                     .header("www-authenticate", "Basic realm=\"?\"")
-                    .body(Body::from(String::new()))
+                    .body(Full::new(Bytes::new()))
                     .unwrap());
             }
             match path {
@@ -1727,18 +1732,18 @@ mod stats {
                     Ok(Response::builder()
                         .status(StatusCode::OK)
                         .header("content-type", "application/json")
-                        .body(Body::from(serde_json::to_vec(&status).unwrap()))
+                        .body(Full::new(Bytes::from(serde_json::to_vec(&status).unwrap())))
                         .unwrap())
                 }
                 "/chart.min.js" => Ok(Response::builder()
                     .status(StatusCode::OK)
                     .header("content-type", "application/javascript; charset=utf-8")
-                    .body(Body::from(JS_CHART_MIN))
+                    .body(Full::new(Bytes::from_static(JS_CHART_MIN.as_bytes())))
                     .unwrap()),
                 "/" => Ok(Response::builder()
                     .status(StatusCode::OK)
                     .header("content-type", "text/html; charset=utf-8")
-                    .body(Body::from(HTML_STATS))
+                    .body(Full::new(Bytes::from_static(HTML_STATS.as_bytes())))
                     .unwrap()),
                 _ => {
                     http_error!(StatusCode::NOT_FOUND)
@@ -1752,11 +1757,31 @@ mod stats {
     pub fn start(path: &str) {
         let addr: SocketAddr = path.parse().unwrap();
         log::info!("binding stats server to: {}", addr);
-        let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handler)) });
         tokio::spawn(async move {
+            let listener = match TcpListener::bind(addr).await {
+                Ok(listener) => listener,
+                Err(e) => {
+                    log::error!("unable to bind stats server to {}: {}", addr, e);
+                    return;
+                }
+            };
             loop {
-                let server = Server::bind(&addr).serve(make_svc);
-                let _r = server.await;
+                let (stream, peer_addr) = match listener.accept().await {
+                    Ok(connection) => connection,
+                    Err(e) => {
+                        log::error!("stats server accept error: {}", e);
+                        continue;
+                    }
+                };
+                tokio::spawn(async move {
+                    let io = TokioIo::new(stream);
+                    if let Err(e) = Builder::new(TokioExecutor::new())
+                        .serve_connection(io, service_fn(handler))
+                        .await
+                    {
+                        log::debug!("stats connection from {} failed: {}", peer_addr, e);
+                    }
+                });
             }
         });
     }
