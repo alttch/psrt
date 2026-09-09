@@ -1420,6 +1420,7 @@ async fn launch(
     workers: usize,
     standalone: bool,
 ) {
+    LazyLock::force(&UPTIME);
     psrt::pubsub::set_latency_warn(config.server.latency_warn);
     psrt::pubsub::set_data_queue_size(config.server.data_queue);
     ALLOW_ANONYMOUS.store(config.auth.allow_anonymous, atomic::Ordering::SeqCst);
