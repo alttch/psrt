@@ -1,6 +1,6 @@
 [package]
 name = "psrt"
-version = "0.3.8"
+version = "0.3.9"
 edition = "2024"
 authors = ["Serhij S. <div@altertech.com>"]
 license = "Apache-2.0"
@@ -46,10 +46,10 @@ lto = true
 codegen-units = 1
 
 [dependencies]
-tokio = { version = "1.50", features = ["full"] }
+tokio = { version = "1.53.3", features = ["full"] }
 log = "0.4.14"
 hex = "0.4.2"
-nix = "0.25.0"
+nix = { version = "0.31.3", default-features = false, features = ["time"] }
 tokio-native-tls = "0.3.1"
 openssl = "0.10.80"
 async-channel = "1.7.1"
@@ -81,8 +81,8 @@ mimalloc = { version = "0.1.43", optional = true }
 parking_lot = { package = "parking_lot_rt", version = "0.12.1" }
 async-trait = "0.1.74"
 eva-sdk = { version = "0.4", optional = true }
-rustls = { version = "0.23", optional = true, features = ["fips"] }
-eva-common = { version = "^0.4.8", features = ["services", "fips"], optional = true }
+rustls = { version = "0.23.46", optional = true, features = ["fips"] }
+eva-common = { version = "^0.4.10", features = ["services", "fips"], optional = true }
 
 [features]
 #default = ["server", "cli", "cluster"]
